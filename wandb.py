@@ -1,45 +1,60 @@
-import neural_structured_learning as nsl
+import torch
 
 class HParams(object):
-  """Hyperparameters used for training."""
-  def __init__(self, learn_rate=4e-5, batch_size=1, epochs=1):
-    ### wandb config
-    self.config = {
-        "project": "graph-neural-network",
-        "entity": "adnanhd",
-        "epochs": epochs,
-        "batch_size": batch_size,
-        "lr": learn_rate
-    }
+    """Hyperparameters used for training."""
+    def __init__(self, *args, **kwargs):
+        ### wandb config
+        self.epochs = 1
+        self.batch_size = 1
+        self.lr = 4e-5
+        
+        self.plot_loss = False
+        self.save_loss = False
+        self.verbose = True
+        
+        ### training parameters
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+        self.dtype = torch.float
+        self.xtype = torch.float
+        self.ytype = torch.float
+       
+        self.save_path = None
+        self.plot_path = None
+        
+        self.save_iter = False
+
+        for key, value in kwargs.items():
+            self.__setattr__(key, value)
+
+        for key, value in zip(filter(lambda k: k not in kwargs.keys(), self.__dict__.keys()), args):
+            self.__setattr__(key, value)
     
-    ### training parameters
-    self.train_epochs = 50 #500
-    self.batch_size = 128
-    self.learn_rate = 1e-5
+        ### evaluating parameters
+        self.eval_steps = None  # All instances in the test set are evaluated.
+        self.load_iter = False
     
-    ### evaluating parameters
-    self.eval_steps = None  # All instances in the test set are evaluated.
+    
+    @property
+    def wandb(self):
+        return {key: self.__getattribute__(key) for key in ('epochs', 'batch_size', 'lr')}
 
     @property
-    def epochs(self):
-        return self.config['epochs']
-    
-    @epochs.setter
-    def epochs(self, new_epochs):
-        self.config['epochs'] = new_epochs
+    def fit(self):
+        return {key: self.__getattribute__(key) for key in ('save_iter', 'save_loss', 'plot_loss', 'verbose')}
 
     @property
-    def batch_size(self):
-        return self.config['batch_size']
-    
-    @batch_size.setter
-    def epochs(self, new_size):
-        self.config['batch_size'] = new_size
+    def evaluate(self):
+        return {key: self.__getattribute__(key) for key in ('load_iter', 'save_loss', 'plot_loss', 'verbose')}
 
-    @property
-    def learn_rate(self):
-        return self.config['epochs']
-    
-    @epochs.setter
-    def epochs(self, new_epochs):
-        self.config['epochs'] = new_epochs
+    def __getitem__(self, index):
+        return self.__getattribute__(index)
+
+    def __len__(self):
+        return len(self.__dict__)
+
+    def __repr__(self):
+        return "Config({})".format(", ".join("{}=\"{}\"".format(key, value) 
+            for key, value in self.__dict__.items() if value))
+
+
