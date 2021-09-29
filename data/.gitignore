@@ -1,3 +1,9 @@
-__pycache__
-.PreLoadedDataset
-.PreLoadedDataset2
+#python cache files
+__pycache__/
+
+#large dataset files
+.PreLoadedDataset/
+.PreLoadedDataset2/
+
+# dataset cache files
+.*.cache
