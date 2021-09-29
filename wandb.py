@@ -1,4 +1,4 @@
-import torch
+import copy, torch
 
 class HParams(object):
     """Hyperparameters used for training."""
@@ -37,15 +37,18 @@ class HParams(object):
     
     @property
     def wandb(self):
-        return {key: self.__getattribute__(key) for key in ('epochs', 'batch_size', 'lr')}
+        return {key: copy.deepcopy(self.__getattribute__(key)) 
+                for key in ('epochs', 'batch_size', 'lr')}
 
     @property
     def fit(self):
-        return {key: self.__getattribute__(key) for key in ('save_iter', 'save_loss', 'plot_loss', 'verbose')}
+        return {key: copy.deepcopy(self.__getattribute__(key)) 
+                for key in ('save_iter', 'save_loss', 'plot_loss', 'verbose')}
 
     @property
     def evaluate(self):
-        return {key: self.__getattribute__(key) for key in ('load_iter', 'save_loss', 'plot_loss', 'verbose')}
+        return {key: copy.deepcopy(self.__getattribute__(key)) 
+                for key in ('load_iter', 'save_loss', 'plot_loss', 'verbose')}
 
     def __getitem__(self, index):
         return self.__getattribute__(index)
@@ -54,7 +57,8 @@ class HParams(object):
         return len(self.__dict__)
 
     def __repr__(self):
-        return "Config({})".format(", ".join("{}=\"{}\"".format(key, value) 
+        delimiter = ",\n" + " " * 7
+        return "Config({})".format(delimiter.join("{}=\"{}\"".format(key, value.__repr__())
             for key, value in self.__dict__.items() if value))
 
 
