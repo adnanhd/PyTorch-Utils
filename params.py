@@ -1,4 +1,4 @@
-import copy, torch
+import copy, torch, argparse
 
 class HParams(object):
     """Hyperparameters used for training."""
@@ -33,7 +33,10 @@ class HParams(object):
         ### evaluating parameters
         self.eval_steps = None  # All instances in the test set are evaluated.
         self.load_iter = False
-    
+
+    @classmethod
+    def from_parser(cls, args: argparse.ArgumentParser):
+        return cls(**args.parse_args().__dict__)
     
     @property
     def wandb(self):

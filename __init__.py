@@ -2,7 +2,7 @@
 
 import utils.metrics
 import utils.engine
-import utils.wandb
+import utils.params
 
 import utils.data
 import utils.models

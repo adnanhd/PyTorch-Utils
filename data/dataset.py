@@ -1,4 +1,5 @@
 import os
+import math
 import torch
 import numpy as np
 import matplotlib.pyplot as plt
@@ -83,8 +84,69 @@ class Dataset(torch.utils.data.dataset.Dataset):
                                            batch_size=batch_size,
                                            num_workers=num_workers)
 
-    def from_preloaded(self):
-        pass
+    @classmethod
+    def from_preloaded(self, feature_class, label_class, 
+            transform=None, feature_func=None, label_func=None, 
+            path=Constants.preloaded_dataset_path, cache=True):
+        def check_nbits(val):
+            return math.pow(2, math.floor(math.log2(math.log2(abs(val)))))
+        
+        def tohex(val, nbits=32):
+            nbits = max(nbits, check_nbits(val))
+            return hex((val + (1 << nbits)) % (1 << nbits))
+
+        try:
+            import tqdm
+        except ImportError:
+            generator = range
+        else:
+            generator = tqdm.tqdm
+
+        feature_cache = os.path.join(path, ".{}.cache".format(tohex(hash(feature_class))))
+        label_cache = os.path.join(path, ".{}.cache".format(tohex(hash(label_class))))
+        if os.path.isfile(feature_cache) and os.path.isfile(label_cache):
+            features = torch.load(feature_cache)
+            labels = torch.load(label_cache)
+        else:
+            generator = enumerate(
+                    iterator(
+                        generate_dataset(
+                            self.feature_class,
+                            self.label_class,
+                            filepath=self.dataset_path)))
+
+            if os.path.isfile(feature_cache):
+                
+                features = torch.load(feature_cache)
+                labels = torch.empty(torch.Shape(label_class.shape))
+                for i, datum_name in generator:
+                    labels[i] = label_class.load(path, datum_name)
+                
+                if cache:
+                    torch.save(labels, label_cache)
+            elif os.path.isfile(label_cache):
+                
+                features = torch.empty(torch.Shape(feature_class.shape))
+                labels = torch.load(label_cache)
+                for i, datum_name in generator:
+                    features[i] = feature_class.load(path, datum_name)
+                
+                if cache:
+                    torch.save(features, feature_cache)
+            else:
+                
+                features = torch.empty(torch.Shape(feature_class.shape))
+                labels = torch.empty(torch.Shape(label_class.shape))
+                for i, datum_name in generator:
+                    features[i] = feature_class.load(path, datum_name)
+                    labels[i] = label_class.load(path, datum_name)
+                
+                if cache:
+                    torch.save(features, feature_cache)
+                    torch.save(labels, label_cache)
+
+        return cls(features, labels, transform, feature_func, label_func)
+
 
 
 class PreLoadedDataset(torch.utils.data.dataset.Dataset):
@@ -130,7 +192,7 @@ class PreLoadedDataset(torch.utils.data.dataset.Dataset):
 
         return feature, label
 
-    def dataset(self):
+    def dataset(self, path=Constants.preloaded_dataset_path):
         import tqdm
         features = []
         labels = []
