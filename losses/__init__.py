@@ -4,6 +4,7 @@ import numpy as np
 from torchvision import transforms
 from .ausm_losses import F_mass,F_mom
 from .mass_maps import mass_conservation_calculate, momentum_conservation_calculate
+from .f1_loss import F1_Loss
 
 class CustomLoss(torch.nn.Module):
     
