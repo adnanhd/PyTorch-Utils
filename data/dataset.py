@@ -98,27 +98,23 @@ class Dataset(torch.utils.data.dataset.Dataset):
         try:
             import tqdm
         except ImportError:
-            generator = range
+            iterator = range
         else:
-            generator = tqdm.tqdm
+            iterator = tqdm.tqdm
 
         feature_cache = os.path.join(path, ".{}.cache".format(tohex(hash(feature_class))))
         label_cache = os.path.join(path, ".{}.cache".format(tohex(hash(label_class))))
+        print(feature_cache, label_cache)
         if os.path.isfile(feature_cache) and os.path.isfile(label_cache):
             features = torch.load(feature_cache)
             labels = torch.load(label_cache)
         else:
-            generator = enumerate(
-                    iterator(
-                        generate_dataset(
-                            self.feature_class,
-                            self.label_class,
-                            filepath=self.dataset_path)))
+            generator = enumerate(iterator(generate_dataset(feature_class, label_class, filepath=path)))
 
             if os.path.isfile(feature_cache):
                 
                 features = torch.load(feature_cache)
-                labels = torch.empty(torch.Shape(label_class.shape))
+                labels = torch.empty(torch.Size(label_class.shape))
                 for i, datum_name in generator:
                     labels[i] = label_class.load(path, datum_name)
                 
@@ -126,7 +122,7 @@ class Dataset(torch.utils.data.dataset.Dataset):
                     torch.save(labels, label_cache)
             elif os.path.isfile(label_cache):
                 
-                features = torch.empty(torch.Shape(feature_class.shape))
+                features = torch.empty(torch.Size(feature_class.shape))
                 labels = torch.load(label_cache)
                 for i, datum_name in generator:
                     features[i] = feature_class.load(path, datum_name)
@@ -135,11 +131,11 @@ class Dataset(torch.utils.data.dataset.Dataset):
                     torch.save(features, feature_cache)
             else:
                 
-                features = torch.empty(torch.Shape(feature_class.shape))
-                labels = torch.empty(torch.Shape(label_class.shape))
+                features = torch.empty(torch.Size([175]) + torch.Size(feature_class.shape))
+                labels = torch.empty(torch.Size([175]) + torch.Size(label_class.shape))
                 for i, datum_name in generator:
-                    features[i] = feature_class.load(path, datum_name)
-                    labels[i] = label_class.load(path, datum_name)
+                    features[i] = feature_class.load(path, datum_name).data
+                    labels[i] = label_class.load(path, datum_name).data
                 
                 if cache:
                     torch.save(features, feature_cache)
