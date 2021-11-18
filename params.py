@@ -4,44 +4,55 @@ class HParams(object):
     """Hyperparameters used for training."""
     def __init__(self, *args, **kwargs):
         ### wandb config
-        self.epochs = 1
+        self.project = None
+        self.entity = None
+
+        self.num_epochs = 1
         self.batch_size = 1
-        self.lr = 4e-5
+        self.learn_rate = 4e-5
         
-        self.plot_loss = False
+        ## Trainer params
         self.save_loss = False
+        self.plot_loss = False
         self.verbose = True
         
-        ### training parameters
+        self.dtype = torch.float
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-        self.dtype = torch.float
+        self.save_path = "./model"
+        self.plot_path = None
+        self.loss_path = None
+        
+        ### fitting parameters
         self.xtype = torch.float
         self.ytype = torch.float
-       
-        self.save_path = None
-        self.plot_path = None
         
         self.save_iter = False
-
-        for key, value in kwargs.items():
-            self.__setattr__(key, value)
-
-        for key, value in zip(filter(lambda k: k not in kwargs.keys(), self.__dict__.keys()), args):
-            self.__setattr__(key, value)
     
         ### evaluating parameters
         self.eval_steps = None  # All instances in the test set are evaluated.
         self.load_iter = False
 
-    @classmethod
-    def from_parser(cls, args: argparse.ArgumentParser):
-        return cls(**args.parse_args().__dict__)
+        for key, value in kwargs.items():
+            if key in self.__dict__.keys():
+                self.__setattr__(key, value)
+
+        for key, value in zip(filter(lambda k: k not in kwargs.keys(), self.__dict__.keys()), args):
+            if key in self.__dict__.keys():
+                self.__setattr__(key, value)
+
+    @property
+    def lr(self):
+        return self.learn_rate
+
+    @property
+    def epochs(self):
+        return self.num_epochs
     
     @property
     def wandb(self):
         return {key: copy.deepcopy(self.__getattribute__(key)) 
-                for key in ('epochs', 'batch_size', 'lr')}
+                for key in ('epochs', 'batch_size', 'lr', 'device')}
 
     @property
     def fit(self):
@@ -64,4 +75,7 @@ class HParams(object):
         return "Config({})".format(delimiter.join("{}=\"{}\"".format(key, value.__repr__())
             for key, value in self.__dict__.items() if value))
 
+    @classmethod
+    def from_parser(cls, args: argparse.ArgumentParser):
+        return cls(**vars(args.parse_args()))
 

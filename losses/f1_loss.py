@@ -40,4 +40,3 @@ class F1_Loss(nn.Module):
         f1 = f1.clamp(min=self.epsilon, max=1-self.epsilon)
         return 1 - f1.mean()
 
-f1_loss = F1_Loss().cuda()
