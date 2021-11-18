@@ -1,4 +1,4 @@
-import os, time, torch
+import os, time, torch, math
 import matplotlib.pyplot as plt
 try:
     from tqdm import tqdm, trange
@@ -36,7 +36,7 @@ def subplot_test(trainer, metrics):
     ax.set_title('Testing Loss in {} Case'.format(len(metrics['Test Loss'])))
     ax.set_ylabel('Cases')
     ax.set_xlabel('Loss (avg. {:.3e})'.format(torch.as_tensor(metrics['Test Loss']).mean()))
-    ax.hist(metrics['Test Loss'].cpu().tolist(), bins=len(metrics['Test Loss']) // 10)
+    ax.hist(metrics['Test Loss'].cpu().tolist(), bins=math.log2(len(metrics['Test Loss'])) ** 2)
     plt.savefig(os.path.join(trainer.plot_path, 'test_loss_hist_{}_iter.png'.format(metrics['Epochs'])))
     plt.close(fig)
 
