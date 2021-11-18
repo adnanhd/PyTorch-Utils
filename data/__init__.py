@@ -7,5 +7,5 @@ import utils.data.sample
 
 from .dtypes import Datum
 from .sample import StoredSample, Sample
-from .dataset import Dataset, PreLoadedDataset
+from .dataset import Dataset
 from .prepare import CrudeDatum as Prepare

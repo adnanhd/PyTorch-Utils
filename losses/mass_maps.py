@@ -1,7 +1,6 @@
 import torch
 
 
-
 # roll  1: image yukari, saga kayiyor 
 # roll -1: image asagi, sola kayiyor
 

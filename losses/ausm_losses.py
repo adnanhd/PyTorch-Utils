@@ -1,9 +1,12 @@
 import torch
+import pdb
+import wandb
+
 
 def a(T):
 	gamma = 1.4 
 	R = 287.058
-	return torch.sqrt(gamma*R*T)
+	return (gamma*R*T).abs().sqrt()
 
 
 def shift_L(t):
@@ -108,31 +111,104 @@ def P_L(P,M):
 
 	return pplus_i_minus_1 + pminus
 
+class MassConservationLoss(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+    
+    def forward(self, output, ground=None):
+        """
+        Rho = output[:,0,:,:] 
+        U   = output[:,1,:,:]
+        V   = output[:,2,:,:]
+        P   = output[:,3,:,:]
+        T   = output[:,4,:,:]
+        M   = output[:,5,:,:]
+        """
+        result = self._F_mass(*map(lambda i: output[:,i,:,:], (0, 4, 5)))
+        print(result.mean(), result.sum())
 
-def F_mass(Rho,T,M):
+        if ground is not None:
+            result = result - self._F_mass(*map(lambda i: output[:,i,:,:], (0, 4, 5)))
 
-	return M_R(M) * Phi_R(Rho*a(T)) - M_L(M) * Phi_L(Rho*a(T))
-
-
-def F_mom(Rho,U,V,P,T,M):
-	eq1 = M_R(M) * Phi_R(Rho*a(T)*U) + P_R(P,M)
-	eq2 = M_L(M) * Phi_L(Rho*a(T)*U) + P_L(P,M)
-
-	eq3 = M_R(M) * Phi_R(Rho*a(T)*V)  
-	eq4 = M_L(M) * Phi_L(Rho*a(T)*V)
-
-	return eq1 - eq2 + eq3 - eq4
-
-
-
-
-
-
-
-
-
-
-
-
+        return result.sum()
+        
+    @staticmethod
+    def _F_mass(Rho, T, M):
+        return M_R(M) * Phi_R(Rho*a(T)) - M_L(M) * Phi_L(Rho*a(T))
 
 
+class MomentumConservationLoss(torch.nn.Module):
+    wandb = False
+    debug = False
+    def __init__(self):
+        super().__init__()
+    
+    def forward(self, output, ground=None):
+        """
+        Rho = output[:,0,:,:] 
+        U   = output[:,1,:,:]
+        V   = output[:,2,:,:]
+        P   = output[:,3,:,:]
+        T   = output[:,4,:,:]
+        M   = output[:,5,:,:]
+        """
+
+        if self.debug and output.isnan().any():
+            pdb.set_trace()
+        
+        result = self._F_mom(*map(lambda i: output[:,i,:,:], range(6)))
+        
+        if self.debug and result.isnan().any():
+            print("output fucked up")
+            pdb.set_trace()
+        
+        if ground is not None:
+            result = result - self._F_mom(*map(lambda i: ground[:,i,:,:], range(6)))
+            
+            if self.debug and ground.isnan().any():
+                pdb.set_trace()
+            
+            if self.debug and result.isnan().any():
+                print("ground fucked up")
+                pdb.set_trace()
+
+        return result.sum()
+
+    @classmethod
+    def _F_mom(cls, Rho, U, V, P, T, M):
+        eq1 = M_R(M) * Phi_R(Rho * a(T) * U) + P_R(P, M)
+        eq2 = M_L(M) * Phi_L(Rho * a(T) * U) + P_L(P, M)
+        
+        eq3 = M_R(M) * Phi_R(Rho * a(T) * V)  
+        eq4 = M_L(M) * Phi_L(Rho * a(T) * V)
+
+        flag = False
+
+        if cls.debug and eq1.isnan().any():
+            print("eq1 is fucked up")
+            flag = True
+        elif cls.wandb:
+            wandb.log({"eq1_loss": eq1.mean()})
+
+        if cls.debug and eq2.isnan().any():
+            print("eq2 is fucked up")
+            flag = True
+        elif cls.wandb:
+            wandb.log({"eq2_loss": eq2.mean()})
+
+        if cls.debug and eq3.isnan().any():
+            print("eq3 is fucked up")
+            flag = True
+        elif cls.wandb:
+            wandb.log({"eq3_loss": eq3.mean()})
+
+        if cls.debug and eq4.isnan().any():
+            print("eq4 is fucked up")
+            flag = True
+        elif cls.wandb:
+            wandb.log({"eq4_loss": eq4.mean()})
+
+        if cls.debug and flag:
+            pdb.set_trace()
+        
+        return (eq1 - eq2 + eq3 - eq4).sum(dim=-3)

@@ -1,14 +1,16 @@
 import os
-from abc import ABC, abstractmethod
 import torch
-from copy import deepcopy
+import hashlib
 import scipy.io
 import numpy as np
+from copy import deepcopy
 import matplotlib.pyplot as plt
 from .utils import encoder_lambda
+from abc import ABC, abstractmethod
 
 
 class Datum(ABC):
+    sha256 = hashlib.sha256()
     def __init__(self, data=None):
         self.data = data
 
@@ -61,6 +63,10 @@ class Datum(ABC):
     def load(cls, path, name):
         path = os.path.join(path, name, name + cls.suffix)
         return cls(torch.from_numpy(np.load(path)))
+
+    @classmethod
+    def hash(cls):
+        return hashlib.sha256(bytes(cls.suffix, encoding='utf-8')).hexdigest()
 
 
 class Image(Datum):

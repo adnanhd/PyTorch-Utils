@@ -1,4 +1,4 @@
-import torch
+import torch, pdb
 import torch.nn as nn
 class CFD_CNN(nn.Module):
     def __init__(self):
@@ -115,13 +115,13 @@ class CFD_CNN(nn.Module):
         ## ENCODER
         c1 = self.conv_1(x) 
         c1 = self.bn1(c1)
-        a1 = self.activation(c1)    ## 128x128,64
+        c1 = self.activation(c1)    ## 128x128,64
         
-        c2 = self.conv_2(a1)
+        c2 = self.conv_2(c1)
         c2 = self.bn2(c2)
-        a2 = self.activation(c2)    ## 64x64, 128
+        c2 = self.activation(c2)    ## 64x64, 128
         
-        c3 = self.conv_3(a2)
+        c3 = self.conv_3(c2)
         c3 = self.bn3(c3)
         a3 = self.activation(c3)    ## 32x32, 256
         
@@ -142,7 +142,7 @@ class CFD_CNN(nn.Module):
         a7 = self.activation(c7)    ## 2x2, 512
         
         c8 = self.conv_8(a7)        ## 1x1, 512     
-       
+
         ## DECODER
         d1 = self.deconv_1(c8)  ## 2x2, 512
         d1 = self.activation(d1)
