@@ -8,7 +8,7 @@ import pandas as pd
 import os.path as osp
 from tqdm import tqdm
 from .sample import StoredSample
-from airfoils import Airfoil
+#from airfoils import Airfoil
 import matplotlib.pyplot as plt
 from scipy.interpolate import interp1d
 

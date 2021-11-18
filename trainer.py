@@ -1,4 +1,4 @@
-import os, time, torch, wandb
+import os, time, torch, math, wandb
 import matplotlib.pyplot as plt
 try:
     from tqdm import tqdm, trange
@@ -36,7 +36,7 @@ def subplot_test(trainer, metrics):
     ax.set_title('Testing Loss in {} Case'.format(len(metrics['Test Loss'])))
     ax.set_ylabel('Cases')
     ax.set_xlabel('Loss (avg. {:.3e})'.format(torch.as_tensor(metrics['Test Loss']).mean()))
-    ax.hist(metrics['Test Loss'].cpu().tolist(), bins=len(metrics['Test Loss']) // 10)
+    ax.hist(metrics['Test Loss'].cpu().tolist(), bins=math.log2(len(metrics['Test Loss'])) ** 2)
     plt.savefig(os.path.join(trainer.plot_path, 'test_loss_hist_{}_iter.png'.format(metrics['Epochs'])))
     plt.close(fig)
 
@@ -182,8 +182,8 @@ class Trainer:
             plot_loss=False, # plot losses
             verbose=True, # print and save logs
             callbacks=[]):
-        train_loss_lst = torch.zeros(epochs, device=self.device)
-        valid_loss_lst = torch.zeros(epochs, device=self.device)
+        train_loss_lst = torch.empty(epochs, device=self.device)
+        valid_loss_lst = torch.empty(epochs, device=self.device)
 
         metrics={'Train Loss': None, 'Valid Loss': None}
 
@@ -224,9 +224,12 @@ class Trainer:
                 self.optimizer.zero_grad()
                 loss.backward()
                 self.optimizer.step()
-                if self.scheduler is not None:
-                    self.scheduler.step()
-
+                
+                loss_list[i] = loss.detach()
+            
+            if self.scheduler is not None:
+                self.scheduler.step()
+            
             metrics['Train Loss'] = "{:.3e}".format(loss_list.mean())
             train_loss_lst[epoch] = loss_list.mean()
 
