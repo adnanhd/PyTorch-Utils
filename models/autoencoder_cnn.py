@@ -2,9 +2,9 @@ import torch
 import torch.nn as nn
 
 
-class AutoencoderCNNModel(nn.Module):
+class AutoencoderCNN(nn.Module):
     def __init__(self):
-        super(AutoencoderCNNModel, self).__init__()
+        super(AutoencoderCNN, self).__init__()
 
         ### ENCODER
         self.conv_1 = nn.Conv2d(in_channels=1,

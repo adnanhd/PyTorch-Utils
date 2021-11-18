@@ -4,9 +4,9 @@ import torch.nn as nn
 from torch.nn.init import normal_ as normal
 from torchsummary import summary
 
-class AutoencoderMLPModel(nn.Module):
+class AutoencoderMLP(nn.Module):
     def __init__(self, li=3136, l1=128, l2=128, l3=128, lo=1000, init_weight=None):
-        super(AutoencoderMLPModel, self).__init__()
+        super(AutoencoderMLP, self).__init__()
 
         ### ENCODER
         self.conv_1 = nn.Conv2d(in_channels=1,
