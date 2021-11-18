@@ -1,8 +1,8 @@
 #!/usr/bin/env python3.6
 
-from .autoencoder_mlp import AutoencoderMLPModel as AutoencoderMLP
-from .autoencoder_cnn import AutoencoderCNNModel as AutoencoderCNN
-from .ausm_model      import CFD_CNN as AUSM_CFD_CNN
+from .autoencoder_mlp          import AutoencoderMLP
+from .autoencoder_cnn          import AutoencoderCNN
+from .ausm_model               import CFD_CNN as AUSM_CFD_CNN
 from .multi_layered_perceptron import MultiLayeredPerceptron3D, MultiLayeredPerceptron2D
 
 
