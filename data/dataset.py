@@ -53,6 +53,8 @@ class Dataset(torch.utils.data.dataset.Dataset):
                 label_func=self.label_func)
     
     def leave(self, index):
+        if isinstance(index, float):
+            index = int(self.__len__() * index)
         other = self.take(index)
         self.skip(index)
         return other

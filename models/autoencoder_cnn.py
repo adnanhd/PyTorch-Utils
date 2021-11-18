@@ -124,7 +124,3 @@ class AutoencoderCNNModel(nn.Module):
 
         return output
 
-
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-net = AutoencoderCNNModel().to(device)
-# summary(net, (1,216,216))
