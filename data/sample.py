@@ -5,7 +5,6 @@ import torch
 import numpy as np
 import os.path as osp
 from tqdm import tqdm
-from airfoils import Airfoil
 import matplotlib.pyplot as plt
 from .utils import generate_dataset
 

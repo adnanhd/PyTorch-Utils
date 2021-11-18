@@ -147,8 +147,8 @@ class Trainer:
             plot_loss=False, # plot losses
             verbose=True, # print and save logs
             callbacks=[]):
-        train_loss_lst = torch.zeros(epochs, device=self.device)
-        valid_loss_lst = torch.zeros(epochs, device=self.device)
+        train_loss_lst = torch.empty(epochs, device=self.device)
+        valid_loss_lst = torch.empty(epochs, device=self.device)
 
         metrics={'Train Loss': '.##e#', 'Valid Loss': '.##e#'}
         if verbose and visual:
@@ -177,8 +177,8 @@ class Trainer:
                 self.optimizer.zero_grad()
                 loss.backward()
                 self.optimizer.step()
-
-                loss_list[i] = loss
+                
+                loss_list[i] = loss.detach()
             metrics['Train Loss'] = "{:.3e}".format(loss_list.mean())
             train_loss_lst[epoch] = loss_list.mean()
 
