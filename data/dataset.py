@@ -76,13 +76,17 @@ class Dataset(torch.utils.data.dataset.Dataset):
         return self.labels.shape
 
     @classmethod
-    def to_dataloader(cls, features, labels, batch_size=1, train=True, transform=None, num_workers=0):
+    def to_dataloader(cls, features, labels, batch_size=None, train=True, transform=None, num_workers=0):
+        if batch_size is None:
+            batch_size = len(features)
         return torch.utils.data.DataLoader(cls(features, labels, transform=transform),
                                            batch_size=batch_size,
                                            shuffle=train,
                                            num_workers=num_workers)
 
-    def dataloader(self, batch_size=1, train=True, num_workers=0):
+    def dataloader(self, batch_size=None, train=True, num_workers=0):
+        if batch_size is None:
+            batch_size = self.__len__()
         return torch.utils.data.DataLoader(self, shuffle=train,
                                            batch_size=batch_size,
                                            num_workers=num_workers)
