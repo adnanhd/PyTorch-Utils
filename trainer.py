@@ -1,4 +1,4 @@
-import os, time, torch, math, wandb
+import os, time, torch, math
 import matplotlib.pyplot as plt
 try:
     from tqdm import tqdm, trange
@@ -24,6 +24,7 @@ def subplot_train(trainer, metrics):
     ax.set_title('Training and Validation Loss in {} Iter'.format(epochs))
     ax.set_xlabel('Epochs')
     ax.set_ylabel('Loss')
+    # TODO: add 'x' and 'o' for train and valid
     ax.semilogy(range(epochs), metrics['Train Loss'].cpu().tolist(), label='train')
     ax.semilogy(range(epochs), metrics['Valid Loss'].cpu().tolist(), label='valid')
     ax.legend()
@@ -36,7 +37,7 @@ def subplot_test(trainer, metrics):
     ax.set_title('Testing Loss in {} Case'.format(len(metrics['Test Loss'])))
     ax.set_ylabel('Cases')
     ax.set_xlabel('Loss (avg. {:.3e})'.format(torch.as_tensor(metrics['Test Loss']).mean()))
-    ax.hist(metrics['Test Loss'].cpu().tolist(), bins=math.log2(len(metrics['Test Loss'])) ** 2)
+    ax.hist(metrics['Test Loss'].cpu().tolist(), bins=int(math.log2(len(metrics['Test Loss'])) ** 2))
     plt.savefig(os.path.join(trainer.plot_path, 'test_loss_hist_{}_iter.png'.format(metrics['Epochs'])))
     plt.close(fig)
 
@@ -57,7 +58,7 @@ def subplots(ylabel=None, xlabel=None, title=None, ax=None, fig=None):
 class Trainer:
     def __init__(self, model, loss=None, optim=None, sched=None, 
             save_path=None, plot_path=None, loss_path=None, 
-            device=None, xtype=None, ytype=None, wandb=None):
+            device=None, xtype=None, ytype=None, *args, **kwargs):
         
         # where state dicts are stored
         self.save_path=save_path if save_path else 'model'
@@ -82,26 +83,6 @@ class Trainer:
         recursive_mkdir(self.save_path)
         recursive_mkdir(self.plot_path)
         recursive_mkdir(self.loss_func_path)
-
-        if (wandb):
-            self.wandb = wandb.init(project='eeg-gcn', entity='louisccc',
-                config={
-                    "num_epochs": num_epochs,
-                    "learning_rate": learning_rate,
-                    "weight_decay_ratio": weight_decay_ratio,
-                    "batch_size": batch_size,
-                    "device": device,
-                    "num_layers": num_layers,
-                    "layer_spec": layer_spec,
-                    "initial_dim": cfg.initial_dim,
-                    "dropout": cfg.dropout,
-                    "num_classes": cfg.num_classes,
-                    "wandb": wandb
-                })
-            self.wandb.watch(self.model, log="all")
-        else:
-            self.wandb = None
-
 
     def save_checkpoint(self, epoch=None, path=None, **kwargs):
         if path is None or os.path.isdir(path):
@@ -145,7 +126,7 @@ class Trainer:
         if not os.path.isdir(path):
             path = os.path.split(path)[0]
 
-        if epoch is None:
+        if epoch is None or isinstance(epoch, bool) and epoch:
             epoch = max(int(p.split('_')[1]) for p in os.listdir(path) if 'checkpoints' in p)
         
         path = os.path.join(path, 'checkpoints_{}_iter.ckpt'.format(epoch))
@@ -205,7 +186,7 @@ class Trainer:
                 dynamic_ncols=True,
                 desc='Train',
                 ascii=True,
-                colour='GREEN',
+                #colour='GREEN',
                 postfix=metrics)
 
         self.loss_func = self.loss_func.to(device=self.device, dtype=self.xtype)
@@ -219,7 +200,6 @@ class Trainer:
 
                 y_pred = self.model(features)
                 loss = self.loss_func(y_pred, y_true)
-                loss_list[i] = loss
                 
                 self.optimizer.zero_grad()
                 loss.backward()
@@ -256,7 +236,8 @@ class Trainer:
                     'predictions' : y_pred,
                     'features': features,
                     'labels': y_true,
-                    'loss': loss
+                    'loss': loss,
+                    'epoch': epoch + 1
                 }
                 callback(self, **sample)
                 
@@ -298,7 +279,7 @@ class Trainer:
                 file=os.sys.stdout,
                 dynamic_ncols=True,
                 desc='Evaluate',
-                colour='GREEN',
+                #colour='GREEN',
                 postfix=metrics)
 
         self.model.eval()
