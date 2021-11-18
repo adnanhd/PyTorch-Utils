@@ -172,7 +172,7 @@ class Trainer:
                 features = features.to(device=self.device, dtype=self.xtype)
 
                 y_pred = self.model(features)
-                loss = self.loss(y_pred, y_true)
+                loss = self.loss(y_pred, y_true.squeeze())
                 
                 self.optimizer.zero_grad()
                 loss.backward()
