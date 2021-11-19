@@ -32,15 +32,15 @@ class EarlyStopping:
 
         if self.best_score is None:
             self.best_score = score
-            trainer.save_checkpoint(epoch=epoch, path=self.path)
         elif score < self.best_score + self.delta:
             self.counter += 1
             self.trace_func(f'EarlyStopping counter: {self.counter} out of {self.patience}')
             if self.counter >= self.patience:
                 self.early_stop = True
+                trainer.stop_iter(restart=False)
+                trainer.save_checkpoint(epoch=epoch, path=self.path)
         else:
             self.best_score = score
-            trainer.save_checkpoint(epoch=epoch, path=self.path)
             self.counter = 0
 
         return self.early_stop
