@@ -190,7 +190,7 @@ class Trainer:
 
         progress_bar = range(epochs)
 
-        if verbose and visual:
+        if verbose:
             try:
                 progress_bar = tqdm(
                     progress_bar,
@@ -204,6 +204,8 @@ class Trainer:
                     )
             except:
                     visual = False
+            else:
+                    visual = True
         #self.loss_func = self.loss_func.to(device=self.device, dtype=self.xtype)
 
         for epoch in progress_bar:
@@ -252,10 +254,12 @@ class Trainer:
                 valid_loss_lst[epoch] = loss_list.mean()
                 
             for callback in callbacks:
-                callback(trainer, epoch=epoch + 1,
-                    train_loss = train_loss_lst[epoch].copy(),
-                    valid_loss = valid_loss_lst[epoch].copy(),
-                    y_preds = y_pred.detach.copy()
+                callback(self, epoch=epoch + 1,
+                    train_loss=train_loss_lst[epoch].clone(),
+                    valid_loss=valid_loss_lst[epoch].clone(),
+                    y_pred=y_pred.detach().clone(),
+                    y_true=y_true.detach().clone(),
+                    x_true=features.detach().clone()
                 )
 
             if isinstance(save_iter, int) and (epoch + 1) % save_iter == 0:
