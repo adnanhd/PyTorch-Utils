@@ -81,22 +81,29 @@ class Trainer:
         self.optimizer = optim
         self.scheduler = sched
 
+        self._stop_iter = True
+
         recursive_mkdir(self.save_path)
         recursive_mkdir(self.plot_path)
         recursive_mkdir(self.loss_func_path)
 
-    def save_checkpoint(self, epoch=None, path=None, **kwargs):
+    # if loss is not then model saves the best results only
+    def save_checkpoint(self, epoch=None, path=None, loss=None, **kwargs):
         if path is None or os.path.isdir(path):
             path = os.path.join(self.save_path if path is None else path, 
                                 'checkpoints_{}_iter.ckpt'.format(epoch))
             
-        state = {
-            'model': self.model.state_dict() if self.model else None,
-            'optimizer': self.optimizer.state_dict() if self.optimizer else None,
-            'scheduler': self.scheduler.state_dict() if self.scheduler else None,
-            'loss_func': self.loss_func.state_dict() if self.loss_func else None, **kwargs
-        }
-        torch.save(state, path)
+        if loss is not None and os.path.isdir(path) and \
+                loss < torch.load(path).get('valid_loss', float('Inf')) or loss is None:
+            state = {
+                'model': self.model.state_dict() if self.model else None,
+                'optimizer': self.optimizer.state_dict() if self.optimizer else None,
+                'scheduler': self.scheduler.state_dict() if self.scheduler else None,
+                'loss_func': self.loss_func.state_dict() if self.loss_func else None, 
+                'valid_loss' : loss.mean().detach().cpu(), **kwargs
+            }
+
+            torch.save(state, path)
 
     def save_loss(self, label, loss, epoch, path=None):
         if path is None or os.path.isdir(path):
@@ -156,6 +163,9 @@ class Trainer:
 
         return torch.load(path, map_location=self.device)
 
+    def stop_iter(self, restart=False):
+        self._stop_iter = not restart
+
     def fit(self, epochs, train_dataset, 
             valid_dataset=None, 
             load_iter=None,
@@ -164,10 +174,9 @@ class Trainer:
             plot_loss=False, # plot losses
             verbose=True, # print and save logs
             callbacks=[]):
+        self._stop_iter = False
         train_loss_lst = torch.empty(epochs, device=self.device)
         valid_loss_lst = torch.empty(epochs, device=self.device)
-
-        metrics={'Train Loss': None, 'Valid Loss': None}
 
         if load_iter is not None:
             load_iter = self.load_checkpoint(epoch=load_iter)['epochs']
@@ -176,21 +185,26 @@ class Trainer:
         else:
             load_iter = 0
 
-        progress_bar = range(epochs)
-            
-        if verbose and visual:
-            progress_bar = tqdm(
-                progress_bar,
-                unit='epoch',
-                initial=load_iter,
-                file=os.sys.stdout,
-                dynamic_ncols=True,
-                desc='Train',
-                ascii=True,
-                #colour='GREEN',
-                postfix=metrics)
+        if isinstance(save_iter, int) and save_iter <= 0:
+            save_iter = False
 
-        self.loss_func = self.loss_func.to(device=self.device, dtype=self.xtype)
+        progress_bar = range(epochs)
+
+        if verbose and visual:
+            try:
+                progress_bar = tqdm(
+                    progress_bar,
+                    unit='epoch',
+                    initial=load_iter,
+                    file=os.sys.stdout,
+                    dynamic_ncols=True,
+                    desc='Train',
+                    ascii=True,
+                    #colour='GREEN',
+                    )
+            except:
+                    visual = False
+        #self.loss_func = self.loss_func.to(device=self.device, dtype=self.xtype)
 
         for epoch in progress_bar:
 
@@ -209,13 +223,14 @@ class Trainer:
                 loss_list[i] = loss.detach()
             
             if self.scheduler is not None:
-                self.scheduler.step()
+                self.scheduler.step(epoch)
             
-            metrics['Train Loss'] = "{:.3e}".format(loss_list.mean())
+            if visual:
+                progress_bar.set_postfix(train_loss=loss_list.mean())
+            elif verbose:
+                print("train_loss:", loss_list.mean())
+            
             train_loss_lst[epoch] = loss_list.mean()
-
-            if verbose and visual:
-                progress_bar.set_postfix(**metrics)
 
             self.model.eval()
             with torch.no_grad():  # VALIDATION
@@ -229,36 +244,37 @@ class Trainer:
 
                     loss_list[i] = loss.mean()
 
-                metrics['Valid Loss'] = "{:.3e}".format(loss_list.mean())
+                if visual:
+                    progress_bar.set_postfix(valid_loss=loss_list.mean())
+                elif verbose:
+                    print("valid_loss:", loss_list.mean())
+                
                 valid_loss_lst[epoch] = loss_list.mean()
                 
             for callback in callbacks:
-                sample = {
-                    'predictions' : y_pred,
-                    'features': features,
-                    'labels': y_true,
-                    'loss': loss,
-                    'epoch': epoch + 1
-                }
-                callback(self, **sample)
-                
-            if verbose and visual:
-                progress_bar.set_postfix(**metrics)
+                callback(trainer, epoch=epoch + 1,
+                    train_loss = train_loss_lst[epoch].copy(),
+                    valid_loss = valid_loss_lst[epoch].copy(),
+                    y_preds = y_pred.detach.copy()
+                )
 
-            if save_iter and (epoch + 1) % int(save_iter) == 0:
-                self.save_checkpoint(epoch + 1)
+            if isinstance(save_iter, int) and (epoch + 1) % save_iter == 0:
+                self.save_checkpoint(epoch=epoch + 1, loss=loss_list.mean())
+            
+            if self._stop_iter:
+                break
 
-        metrics['Train Loss'] = train_loss_lst.cpu()
-        metrics['Valid Loss'] = valid_loss_lst.cpu()
-        
         if plot_loss:
             subplot_train(self, metrics)
+            
+        if isinstance(save_iter, bool) and save_iter:
+            self.save_checkpoint(load_iter + 1)
         
         if save_loss:
             self.save_loss(label='train', loss=train_loss_lst.cpu().tolist(), epoch=epochs)
             self.save_loss(label='valid', loss=valid_loss_lst.cpu().tolist(), epoch=epochs)
 
-        return metrics
+        return None
 
     def evaluate(self, test_dataset, 
             load_iter=False,
@@ -296,10 +312,10 @@ class Trainer:
                 
                 for callback in callbacks:
                     sample = {
-                        'predictions' : y_pred,
-                        'features': features,
-                        'labels': y_true,
-                        'loss': loss
+                        'predictions' : y_pred.detach().cpu(),
+                        'features': features.detach().cpu(),
+                        'labels': y_true.detach().cpu(),
+                        'loss': loss.detach().cpu()
                     }
                     callback(self, **sample)
 
