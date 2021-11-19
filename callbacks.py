@@ -26,9 +26,8 @@ class EarlyStopping:
         self.delta = delta
         self.path = path
         self.trace_func = trace_func
-    def __call__(self, trainer, loss, epoch=None, **kwargs):
-
-        score = -loss
+    def __call__(self, trainer, valid_loss=None, epoch=None, **kwargs):
+        score = -valid_loss
 
         if self.best_score is None:
             self.best_score = score
