@@ -201,7 +201,7 @@ class Trainer:
                     dynamic_ncols=True,
                     desc='Train',
                     ascii=True,
-                    #colour='GREEN',
+                    colour='GREEN',
                     )
             except:
                     visual = False
@@ -291,17 +291,21 @@ class Trainer:
         if load_iter is None or load_iter:
             load_iter = self.load_checkpoint(epoch=load_iter)['epochs']
 
-        metrics = {'Test Loss': 0, 'Epochs': load_iter}
-        
-        if verbose and visual:
-            test_dataset = tqdm(
-                test_dataset,
-                unit='case',
-                file=os.sys.stdout,
-                dynamic_ncols=True,
-                desc='Evaluate',
-                #colour='GREEN',
-                postfix=metrics)
+        if verbose:
+            try:
+                progress_bar = tqdm(
+                    test_dataset,
+                    unit='case',
+                    file=os.sys.stdout,
+                    dynamic_ncols=True,
+                    desc='Evaluate@{}Ep'.format(load_liter),
+                    colour='GREEN',
+                    postfix=metrics,
+                    )
+            except:
+                    visual = False
+            else:
+                    visual = True
 
         self.model.eval()
         with torch.no_grad():
@@ -312,28 +316,27 @@ class Trainer:
                 y_pred = self.model(features)
                 loss = self.loss_func(y_pred, y_true)
                 test_loss_lst[i] = loss.mean()
-                metrics['Test Loss'] = "{:.3e}".format(loss.mean())
                 
                 for callback in callbacks:
-                    sample = {
-                        'predictions' : y_pred.detach().cpu(),
-                        'features': features.detach().cpu(),
-                        'labels': y_true.detach().cpu(),
-                        'loss': loss.detach().cpu()
-                    }
-                    callback(self, **sample)
+                    callback(self,
+                        test_loss=test_loss_lst[i].clone(),
+                        y_pred=y_pred.detach().clone(),
+                        y_true=y_true.detach().clone(),
+                        x_true=features.detach().clone()
+                    )
 
-                if verbose and visual:
-                    test_dataset.set_postfix(**metrics)
+                if visual:
+                    test_dataset.set_postfix(test_loss=test_loss_lst[i].item())
+                elif verbose:
+                    print("test_loss", test_loss_lst[i].item()
 
-        metrics['Test Loss'] = test_loss_lst.cpu()
         if plot_loss:
             subplot_test(self, metrics)
 
         if save_loss:
-            self.save_loss(label='test', loss=metrics['Test Loss'], epoch=load_iter)
+            self.save_loss(label='test', loss=test_loss_lst.cpu(), epoch=load_iter)
 
-        return metrics
+        return None
 
 
 
