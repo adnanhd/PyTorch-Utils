@@ -19,7 +19,7 @@ def recursive_mkdir(path):
 
 
 
-def subplot_train(trainer, train_loss, valid_loss):
+def subplot_train(path, train_loss, valid_loss):
     fig, ax = subplots()
     epochs = len(train_loss)
     ax.set_title('Training and Validation Loss in {} Iter'.format(epochs))
@@ -29,17 +29,17 @@ def subplot_train(trainer, train_loss, valid_loss):
     ax.semilogy(range(epochs), train_loss, label='train')
     ax.semilogy(range(epochs), valid_loss, label='valid')
     ax.legend()
-    plt.savefig(os.path.join(trainer.plot_path, "train_loss_logy_{}_iter.png".format(epochs)))
+    plt.savefig(os.path.join(path, "train_loss_logy_{}_iter.png".format(epochs)))
     plt.close(fig)
 
 
-def subplot_test(trainer, epochs, test_loss):
+def subplot_test(path, epochs, test_loss):
     fig, ax = plt.subplots()
     ax.set_title('Testing Loss in {} Case'.format(len(test_loss))
     ax.set_ylabel('Cases')
     ax.set_xlabel('Loss (avg. {:.3e})'.format(torch.as_tensor(test_loss).mean()))
     ax.hist(test_loss, bins=int(math.log2(len(test_loss) ** 2))
-    plt.savefig(os.path.join(trainer.plot_path, 'test_loss_hist_{}_iter.png'.format(epochs))
+    plt.savefig(os.path.join(path, 'test_loss_hist_{}_iter.png'.format(epochs))
     plt.close(fig)
 
 
@@ -201,7 +201,7 @@ class Trainer:
                     dynamic_ncols=True,
                     desc='Train',
                     ascii=True,
-                    #colour='GREEN',
+                    colour='GREEN',
                     )
             except:
                     visual = False
@@ -269,7 +269,9 @@ class Trainer:
                 break
 
         if plot_loss:
-            subplot_train(self, train_loss=train_loss_lst.cpu().tolist(), valid_loss=valid_loss_lst.cpu().tolist())
+            subplot_train(self.plot_path, 
+                train_loss=train_loss_lst.cpu().tolist(), 
+                valid_loss=valid_loss_lst.cpu().tolist())
             
         if isinstance(save_iter, bool) and save_iter:
             self.save_checkpoint(epoch=load_iter + 1, loss=valid_loss_lst[-1] if best_only else None)
@@ -291,15 +293,21 @@ class Trainer:
         if load_iter is None or load_iter:
             load_iter = self.load_checkpoint(epoch=load_iter)['epochs']
 
-        if verbose and visual:
-            test_dataset = tqdm(
-                test_dataset,
-                unit='case',
-                file=os.sys.stdout,
-                dynamic_ncols=True,
-                desc='Evaluate',
-                #colour='GREEN',
-                postfix=metrics)
+        if verbose:
+            try:
+                progress_bar = tqdm(
+                    test_dataset,
+                    unit='case',
+                    file=os.sys.stdout,
+                    dynamic_ncols=True,
+                    desc='Evaluate@{}Ep'.format(load_liter),
+                    colour='GREEN',
+                    postfix=metrics,
+                    )
+            except:
+                    visual = False
+            else:
+                    visual = True
 
         self.model.eval()
         with torch.no_grad():
@@ -310,28 +318,28 @@ class Trainer:
                 y_pred = self.model(features)
                 loss = self.loss_func(y_pred, y_true)
                 test_loss_lst[i] = loss.mean()
-                metrics['Test Loss'] = "{:.3e}".format(loss.mean())
                 
                 for callback in callbacks:
-                    sample = {
-                        'predictions' : y_pred.detach().cpu(),
-                        'features': features.detach().cpu(),
-                        'labels': y_true.detach().cpu(),
-                        'loss': loss.detach().cpu()
-                    }
-                    callback(self, **sample)
+                    callback(self,
+                        test_loss=test_loss_lst[i].clone(),
+                        y_pred=y_pred.detach().clone(),
+                        y_true=y_true.detach().clone(),
+                        x_true=features.detach().clone()
+                    )
 
-                if verbose and visual:
-                    test_dataset.set_postfix(**metrics)
+                if visual:
+                    test_dataset.set_postfix(test_loss=test_loss_lst[i].item())
+                elif verbose:
+                    print("test_loss", test_loss_lst[i].item()
 
-        metrics['Test Loss'] = test_loss_lst.cpu()
         if plot_loss:
-            subplot_test(self, metrics)
+            subplot_test(path=self.plot_path, epochs=load_iter, 
+                test_loss=test_loss_lst.cpu().tolist())
 
         if save_loss:
-            self.save_loss(label='test', loss=metrics['Test Loss'], epoch=load_iter)
+            self.save_loss(label='test', loss=test_loss_lst.cpu(), epoch=load_iter)
 
-        return metrics
+        return None
 
 
 
