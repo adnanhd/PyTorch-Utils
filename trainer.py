@@ -100,7 +100,7 @@ class Trainer:
                 'optimizer': self.optimizer.state_dict() if self.optimizer else None,
                 'scheduler': self.scheduler.state_dict() if self.scheduler else None,
                 'loss_func': self.loss_func.state_dict() if self.loss_func else None, 
-                'valid_loss' : loss.mean().detach().cpu(), **kwargs
+                'valid_loss' : loss.mean().detach().cpu() if loss else None, **kwargs
             }
 
             torch.save(state, path)
@@ -172,6 +172,7 @@ class Trainer:
             save_iter=False, # save model and losses
             save_loss=False, # save model and losses
             plot_loss=False, # plot losses
+            best_only=True, # saves only best models
             verbose=True, # print and save logs
             callbacks=[]):
         self._stop_iter = False
@@ -227,10 +228,6 @@ class Trainer:
             if self.scheduler is not None:
                 self.scheduler.step(epoch)
             
-            if visual:
-                progress_bar.set_postfix(train_loss=loss_list.mean())
-            elif verbose:
-                print("train_loss:", loss_list.mean())
             
             train_loss_lst[epoch] = loss_list.mean()
 
@@ -246,12 +243,15 @@ class Trainer:
 
                     loss_list[i] = loss.mean()
 
-                if visual:
-                    progress_bar.set_postfix(valid_loss=loss_list.mean())
-                elif verbose:
-                    print("valid_loss:", loss_list.mean())
-                
                 valid_loss_lst[epoch] = loss_list.mean()
+
+                if visual:
+                    progress_bar.set_postfix(
+                        train_loss=train_loss_lst[epoch].cpu().item(),
+                        valid_loss=valid_loss_lst[epoch].cpu().item())
+                elif verbose:
+                    print("train_loss:", train_loss_lst[epoch].cpu().item(),
+                          "valid_loss:", valid_loss_lst[epoch].cpu().item())
                 
             for callback in callbacks:
                 callback(self, epoch=epoch + 1,
@@ -263,7 +263,7 @@ class Trainer:
                 )
 
             if isinstance(save_iter, int) and (epoch + 1) % save_iter == 0:
-                self.save_checkpoint(epoch=epoch + 1, loss=loss_list.mean())
+                self.save_checkpoint(epoch=epoch + 1, loss=loss_list.mean() if best_only else None)
             
             if self._stop_iter:
                 break
@@ -272,7 +272,7 @@ class Trainer:
             subplot_train(self, metrics)
             
         if isinstance(save_iter, bool) and save_iter:
-            self.save_checkpoint(load_iter + 1)
+            self.save_checkpoint(epoch=load_iter + 1, loss=valid_loss_lst[-1] if best_only else None)
         
         if save_loss:
             self.save_loss(label='train', loss=train_loss_lst.cpu().tolist(), epoch=epochs)
