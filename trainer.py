@@ -1,5 +1,5 @@
 import os, time, torch, math
-import matplotlib.pyplot as plt
+from .plots import subplot_train, subplot_test
 try:
     from tqdm import tqdm, trange
 except ImportError:
@@ -7,53 +7,19 @@ except ImportError:
 else:
     visual = True
 
-def recursive_mkdir(path):
+
+def recursive_mkdir(path, verbose=False):
     try:
         os.mkdir(path)
+        if verbose: print("file created:", path)
     except FileNotFoundError:
         parent, child = os.path.split(path)
-        helper_mkdir(parent)
-        os.mkdir(child)
+        recursive_mkdir(parent, verbose=verbose)
+        os.mkdir(path)
+        if verbose: print("file created:", child)
     except FileExistsError:
-        pass
+        if verbose: print("file exists:", path)
 
-
-
-def subplot_train(path, train_loss, valid_loss):
-    fig, ax = subplots()
-    epochs = len(train_loss)
-    ax.set_title('Training and Validation Loss in {} Iter'.format(epochs))
-    ax.set_xlabel('Epochs')
-    ax.set_ylabel('Loss')
-    # TODO: add 'x' and 'o' for train and valid
-    ax.semilogy(range(epochs), train_loss, label='train')
-    ax.semilogy(range(epochs), valid_loss, label='valid')
-    ax.legend()
-    plt.savefig(os.path.join(path, "train_loss_logy_{}_iter.png".format(epochs)))
-    plt.close(fig)
-
-
-def subplot_test(path, epochs, test_loss):
-    fig, ax = plt.subplots()
-    ax.set_title('Testing Loss in {} Case'.format(len(test_loss))
-    ax.set_ylabel('Cases')
-    ax.set_xlabel('Loss (avg. {:.3e})'.format(torch.as_tensor(test_loss).mean()))
-    ax.hist(test_loss, bins=int(math.log2(len(test_loss) ** 2))
-    plt.savefig(os.path.join(path, 'test_loss_hist_{}_iter.png'.format(epochs))
-    plt.close(fig)
-
-
-def subplots(ylabel=None, xlabel=None, title=None, ax=None, fig=None):
-    if not ax:
-        fig, ax = plt.subplots()
-    if ylabel:
-        ax.set_ylabel(ylabel)
-    if xlabel:
-        ax.set_xlabel(xlabel)
-    if title:
-        ax.set_title(title)
-
-    return fig, ax
 
 
 class Trainer:
@@ -330,7 +296,7 @@ class Trainer:
                 if visual:
                     test_dataset.set_postfix(test_loss=test_loss_lst[i].item())
                 elif verbose:
-                    print("test_loss", test_loss_lst[i].item()
+                    print("test_loss", test_loss_lst[i].item())
 
         if plot_loss:
             subplot_test(path=self.plot_path, epochs=load_iter, 
