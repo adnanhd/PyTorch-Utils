@@ -19,27 +19,27 @@ def recursive_mkdir(path):
 
 
 
-def subplot_train(trainer, metrics):
+def subplot_train(trainer, train_loss, valid_loss):
     fig, ax = subplots()
-    epochs = len(metrics['Train Loss'])
+    epochs = len(train_loss)
     ax.set_title('Training and Validation Loss in {} Iter'.format(epochs))
     ax.set_xlabel('Epochs')
     ax.set_ylabel('Loss')
     # TODO: add 'x' and 'o' for train and valid
-    ax.semilogy(range(epochs), metrics['Train Loss'].cpu().tolist(), label='train')
-    ax.semilogy(range(epochs), metrics['Valid Loss'].cpu().tolist(), label='valid')
+    ax.semilogy(range(epochs), train_loss, label='train')
+    ax.semilogy(range(epochs), valid_loss, label='valid')
     ax.legend()
     plt.savefig(os.path.join(trainer.plot_path, "train_loss_logy_{}_iter.png".format(epochs)))
     plt.close(fig)
 
 
-def subplot_test(trainer, metrics):
+def subplot_test(trainer, epochs, test_loss):
     fig, ax = plt.subplots()
-    ax.set_title('Testing Loss in {} Case'.format(len(metrics['Test Loss'])))
+    ax.set_title('Testing Loss in {} Case'.format(len(test_loss))
     ax.set_ylabel('Cases')
-    ax.set_xlabel('Loss (avg. {:.3e})'.format(torch.as_tensor(metrics['Test Loss']).mean()))
-    ax.hist(metrics['Test Loss'].cpu().tolist(), bins=int(math.log2(len(metrics['Test Loss'])) ** 2))
-    plt.savefig(os.path.join(trainer.plot_path, 'test_loss_hist_{}_iter.png'.format(metrics['Epochs'])))
+    ax.set_xlabel('Loss (avg. {:.3e})'.format(torch.as_tensor(test_loss).mean()))
+    ax.hist(test_loss, bins=int(math.log2(len(test_loss) ** 2))
+    plt.savefig(os.path.join(trainer.plot_path, 'test_loss_hist_{}_iter.png'.format(epochs))
     plt.close(fig)
 
 
@@ -269,7 +269,7 @@ class Trainer:
                 break
 
         if plot_loss:
-            subplot_train(self, metrics)
+            subplot_train(self, train_loss=train_loss_lst.cpu().tolist(), valid_loss=valid_loss_lst.cpu().tolist())
             
         if isinstance(save_iter, bool) and save_iter:
             self.save_checkpoint(epoch=load_iter + 1, loss=valid_loss_lst[-1] if best_only else None)
@@ -291,8 +291,6 @@ class Trainer:
         if load_iter is None or load_iter:
             load_iter = self.load_checkpoint(epoch=load_iter)['epochs']
 
-        metrics = {'Test Loss': 0, 'Epochs': load_iter}
-        
         if verbose and visual:
             test_dataset = tqdm(
                 test_dataset,
