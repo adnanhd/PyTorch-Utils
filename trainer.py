@@ -176,9 +176,11 @@ class Trainer:
         #self.loss_func = self.loss_func.to(device=self.device, dtype=self.xtype)
 
         for epoch in progress_bar:
-
+            self.model.train()
             loss_list = torch.zeros(len(train_dataset), device=self.device)
             for i, (features, y_true) in enumerate(train_dataset):
+                print(features.shape, y_true.shape)
+                os.sys.exit(0)
                 y_true = y_true.to(device=self.device, dtype=self.ytype)
                 features = features.to(device=self.device, dtype=self.xtype)
 
@@ -192,7 +194,7 @@ class Trainer:
                 loss_list[i] = loss.detach()
             
             if self.scheduler is not None:
-                self.scheduler.step(epoch)
+                self.scheduler.step()
             
             
             train_loss_lst[epoch] = loss_list.mean()
@@ -223,9 +225,9 @@ class Trainer:
                 callback(self, epoch=epoch + 1,
                     train_loss=train_loss_lst[epoch].clone(),
                     valid_loss=valid_loss_lst[epoch].clone(),
-                    y_pred=y_pred.detach().clone(),
-                    y_true=y_true.detach().clone(),
-                    x_true=features.detach().clone()
+                    y_pred=y_pred.detach().cpu().clone(),
+                    y_true=y_true.detach().cpu().clone(),
+                    x_true=features.detach().cpu().clone()
                 )
 
             if isinstance(save_iter, int) and (epoch + 1) % save_iter == 0:
@@ -288,9 +290,9 @@ class Trainer:
                 for callback in callbacks:
                     callback(self,
                         test_loss=test_loss_lst[i].clone(),
-                        y_pred=y_pred.detach().clone(),
-                        y_true=y_true.detach().clone(),
-                        x_true=features.detach().clone()
+                        y_pred=y_pred.detach().cpu().clone(),
+                        y_true=y_true.detach().cpu().clone(),
+                        x_true=features.detach().cpu().clone()
                     )
 
                 if visual:
