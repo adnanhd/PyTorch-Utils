@@ -179,8 +179,6 @@ class Trainer:
             self.model.train()
             loss_list = torch.zeros(len(train_dataset), device=self.device)
             for i, (features, y_true) in enumerate(train_dataset):
-                print(features.shape, y_true.shape)
-                os.sys.exit(0)
                 y_true = y_true.to(device=self.device, dtype=self.ytype)
                 features = features.to(device=self.device, dtype=self.xtype)
 
