@@ -4,6 +4,7 @@ import torch.nn as nn
 from torchsummary import summary
 
 
+
 class BezierMLPModel(nn.Module):
     def __init__(self, li=70, l1=256, l2=128, l3=64, lo=12):
         super(BezierMLPModel, self).__init__()
