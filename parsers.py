@@ -1,46 +1,88 @@
-
-        with open(os.path.join('latex', name + ".tex"), 'w') as buf:
-            latex = name.replace('_', '\\_')
-
-            buf.write('\\documentclass{article}\n')
-            buf.write('\\usepackage[utf8]{inputenc}\n')
-            buf.write('\\usepackage{booktabs}\n')
-            
-            buf.write('\\title{}\n'.format("{" + latex + "}"))
-            buf.write('\\author{adnan harun dogan, 2309896}\n')
-            buf.write('\\date{December 2021}\n')
-
-            buf.write('\\begin{document}\n')
-            buf.write('\\maketitle\n')
-            
-            buf.write('\\section{Query 1}\n')
-            pd.DataFrame(res[0, 0], columns=bins, index=grids).transpose().to_latex(buf)
-            pd.DataFrame(res[0, 1], columns=bins, index=grids).transpose().to_latex(buf)
+import datetime
+import pandas as pd
 
 
-            buf.write('\\section{Query 2}\n')
-            pd.DataFrame(res[1, 0], columns=bins, index=grids).transpose().to_latex(buf)
-            pd.DataFrame(res[1, 1], columns=bins, index=grids).transpose().to_latex(buf)
+class Parser:
+    def __init__(self, buf):
+        self._buffer = open(buf, 'w')
+
+    def __del__(self):
+        self._buffer.close()
 
 
-            buf.write('\\section{Query 3}\n')
-            pd.DataFrame(res[2, 0], columns=bins, index=grids).transpose().to_latex(buf)
-            pd.DataFrame(res[2, 1], columns=bins, index=grids).transpose().to_latex(buf)
-            buf.write('\\end{document}\n') 
-       
-
-        with open(os.path.join('html', name + ".html"), 'w') as bb:
-            bb.write('<a href="index.html">go back</a><br>')
-            
-            pd.DataFrame(res[0, 0], columns=bins, index=grids).transpose().to_html(bb)
-            pd.DataFrame(res[0, 1], columns=bins, index=grids).transpose().to_html(bb)
-
-            pd.DataFrame(res[1, 0], columns=bins, index=grids).transpose().to_html(bb)
-            pd.DataFrame(res[1, 1], columns=bins, index=grids).transpose().to_html(bb)
-
-            pd.DataFrame(res[2, 0], columns=bins, index=grids).transpose().to_html(bb)
-            pd.DataFrame(res[2, 1], columns=bins, index=grids).transpose().to_html(bb)
+class WandbParser:
+    _instances = []
+    def __init__(self, project=None, entity=None, model=None, **config):
+        self.wandb = wandb.init(project=project, entity=entity, config=config)
         
-        f.write(f'<a href="{name}.html">{name}</a><br>')
+        if model is not None:
+            self.wandb.watch(self.model, log="all")
 
-    f.close()
+    def __call__(self, train_df=None, valid_df=None, test_df=None):
+        pass
+
+class LatexParser(Parser):
+    main_page = 'index.html'
+    _instances = []
+    def __init__(self, buf, project=None, entity=None, model=None, **config):
+        super(LatexParser, self).__init__(buf)
+        
+        self._buffer.write('\\documentclass{article}\n')
+        self._buffer.write('\\usepackage[utf8]{inputenc}\n')
+        self._buffer.write('\\usepackage{booktabs}\n')
+        
+        self._buffer.write('\\title{' + str(project) + '}\n')
+        self._buffer.write('\\author{' + str(entity) + '}\n')
+        self._buffer.write('\\date{December 2021}\n')
+
+        self._buffer.write('\\begin{document}\n')
+        self._buffer.write('\\maketitle\n')
+
+    def __del__(self):
+        self._buffer.write('\\end{document}\n')
+        super().__del__()
+
+    @classmethod
+    def create_main_page(cls):
+        with open(cls.main_page, 'w') as f:
+            for each in cls._instances:
+                f.write(f'\\include{each.fname}')
+
+    def __call__(self, train_df=None, valid_df=None, test_df=None):
+        
+        if train_df is not None:
+            train_df.to_latex(self._buffer)
+
+        if valid_df is not None:
+            train_df.to_latex(self._buffer)
+
+        if test_df is not None:
+            train_df.to_latex(self._buffer)
+           
+
+class HTMLParser(Parser):
+    main_page = 'index.html'
+    _instances = []
+
+    def __init__(self, buf, project=None, entity=None, model=None, **config):
+        super(HTMLParser, self).__init__(buf)
+        self.fname = buf
+        self._instances.append(self)
+
+    @classmethod
+    def create_main_page(cls):
+        with open(cls.main_page, 'w') as f:
+            for each in cls._instances:
+                f.write(f'<a href="{each.fname}">{each.fname.split(".")[0]}</a><br>')
+
+    def __call__(self, train_df=None, valid_df=None, test_df=None):
+        self._buffer.write(f'<a href="{self.main_page}">go back</a><br>')
+        
+        if train_df is not None:
+            train_df.to_html(self._buffer)
+
+        if valid_df is not None:
+            train_df.to_html(self._buffer)
+
+        if test_df is not None:
+            train_df.to_html(self._buffer)
