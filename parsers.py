@@ -1,5 +1,6 @@
 import datetime
 import pandas as pd
+import matplotlib.pyplot as plt
 
 
 class Parser:
@@ -86,3 +87,5 @@ class HTMLParser(Parser):
 
         if test_df is not None:
             train_df.to_html(self._buffer)
+
+
