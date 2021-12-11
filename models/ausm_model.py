@@ -103,13 +103,13 @@ class CFD_CNN(nn.Module):
                                            padding=0)
 
         
-        self.activation = nn.ReLU()
+        self.activation = nn.ELU()
         
         self.bn1 = nn.BatchNorm2d(64)
         self.bn2 = nn.BatchNorm2d(128)
         self.bn3 = nn.BatchNorm2d(256)
         self.bn4 = nn.BatchNorm2d(512)
-
+        
     def forward(self, x):   ##256x256,1
         
         ## ENCODER
@@ -166,7 +166,6 @@ class CFD_CNN(nn.Module):
         d7 = self.activation(d7)
         
         d8 = self.deconv_8(d7)  ## 256x256, NC
-        d8 = self.activation(d8)
         
         return d8
 
