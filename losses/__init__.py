@@ -4,11 +4,9 @@ import numpy as np
 from torchvision import transforms
 from .mass_maps import mass_conservation_calculate, momentum_conservation_calculate
 from .f1_loss import F1_Loss
-#from .ausm_losses import MomentumConservationLoss, MassConservationLoss
+from .ausm_losses import MomentumConservationLoss, MassConservationLoss
 from torch.nn import MSELoss
 
-
-"""
 class CustomLoss(torch.nn.Module):
     _MSE = 0
     _MAS = 1
@@ -64,4 +62,4 @@ class CustomLoss(torch.nn.Module):
                     "%.3e\t%.3e\t%.3e\t%.3e\t%.3e\t%.3e\t%.3e\n" % (result.item(), *loss, *w_loss))
         
         return result
-"""    
+    
