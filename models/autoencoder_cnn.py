@@ -2,9 +2,9 @@ import torch
 import torch.nn as nn
 
 
-class AutoencoderCNN(nn.Module):
+class AutoencoderCNNModel(nn.Module):
     def __init__(self):
-        super(AutoencoderCNN, self).__init__()
+        super(AutoencoderCNNModel, self).__init__()
 
         ### ENCODER
         self.conv_1 = nn.Conv2d(in_channels=1,
@@ -124,3 +124,7 @@ class AutoencoderCNN(nn.Module):
 
         return output
 
+
+#device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+#net = AutoencoderCNNModel().to(device)
+# summary(net, (1,216,216))

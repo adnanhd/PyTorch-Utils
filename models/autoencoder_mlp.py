@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 import torch
 import torch.nn as nn
-from torch.nn.init import normal_ as normal
+from .mlp import FullyConnectedBlock
 
-class AutoencoderMLP(nn.Module):
+
+class AutoencoderMLPModel(nn.Module):
     def __init__(self, li=3136, l1=128, l2=128, l3=128, lo=1000, init_weight=None):
-        super(AutoencoderMLP, self).__init__()
+        super(AutoencoderMLPModel, self).__init__()
+        self.li = li
 
         ### ENCODER
         self.conv_1 = nn.Conv2d(in_channels=1,
@@ -35,27 +37,7 @@ class AutoencoderMLP(nn.Module):
         
         ### Parameter part
         self.features = nn.Linear(li, 16)
-
-        self.fc_1 = nn.Linear(16, l1)
-        self.fc_2 = nn.Linear(l1, l2)
-        self.fc_3 = nn.Linear(l2, l3)
-
-        self.dropout_1 = nn.Dropout(0.5)
-        self.output_layer = nn.Linear(l3, lo)
-
-        self.fc_activation = nn.ReLU()
-
-        self.fc_bn1 = nn.BatchNorm1d(l1)
-        self.fc_bn2 = nn.BatchNorm1d(l2)
-        self.fc_bn3 = nn.BatchNorm1d(l3)
-
-        self.li = li
-        
-        if init_weight:
-            init_weight(self.fc_1.weight)
-            init_weight(self.fc_2.weight)
-            init_weight(self.fc_3.weight)
-            init_weight(self.output_layer.weight)
+        self.fcb = FullyConnectedBlock(li, l1, l2, l3, lo, activation=nn.ReLU())
 
     def forward(self, x):                     ## [None, 1, 216, 216]
 
@@ -73,20 +55,6 @@ class AutoencoderMLP(nn.Module):
 
         a3 = a3.view(-1, self.li)
         a3 = self.features(a3)
-        
-        f1 = self.fc_1(a3)
-        f1 = self.fc_bn1(f1)
-        fc_a1 = self.fc_activation(f1)
 
-        f2 = self.fc_2(fc_a1)
-        f2 = self.fc_bn2(f2)
-        fc_a2 = self.fc_activation(f2)
-
-        f3 = self.fc_2(fc_a2)
-        f3 = self.fc_bn2(f3)
-        fc_a3 = self.fc_activation(f3)
-
-        output = self.output_layer(fc_a3)
-
-        return output
+        return self.fcb(a3)
 
