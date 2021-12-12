@@ -1,11 +1,7 @@
+import pandas as pd
 import os, time, torch, math
-from .plots import subplot_train, subplot_test
-try:
-    from tqdm import tqdm, trange
-except ImportError:
-    visual = False
-else:
-    visual = True
+#from .plots import subplot_train, subplot_test
+from tqdm import tqdm, trange
 
 
 def recursive_mkdir(path, verbose=False):
@@ -30,7 +26,7 @@ class Trainer:
         # where state dicts are stored
         self.save_path=save_path if save_path else 'model'
         # where loss dicts and train test logs are stored
-        self.loss_func_path=loss_path if loss_path else os.path.join(self.save_path, 'loss')
+        self.loss_path=loss_path if loss_path else os.path.join(self.save_path, 'loss')
         # where dataset visualizations are saved (png, etc.)
         self.plot_path=plot_path if plot_path else os.path.join(self.save_path, 'plot')
         
@@ -51,47 +47,31 @@ class Trainer:
 
         recursive_mkdir(self.save_path)
         recursive_mkdir(self.plot_path)
-        recursive_mkdir(self.loss_func_path)
+        recursive_mkdir(self.loss_path)
 
     # if loss is not then model saves the best results only
-    def save_checkpoint(self, epoch=None, path=None, loss=None, **kwargs):
+    def save_checkpoint(self, epoch=None, path=None, best_metric=None):
         if path is None or os.path.isdir(path):
             path = os.path.join(self.save_path if path is None else path, 
                                 'checkpoints_{}_iter.ckpt'.format(epoch))
             
-        if loss is not None and os.path.isdir(path) and \
-                loss < torch.load(path).get('valid_loss', float('Inf')) or loss is None:
+        if best_metric is not None and os.path.isdir(path) and \
+                best_metric < torch.load(path).get('best_metric', float('Inf')) or best_metric is None:
             state = {
-                'model': self.model.state_dict() if self.model else None,
-                'optimizer': self.optimizer.state_dict() if self.optimizer else None,
-                'scheduler': self.scheduler.state_dict() if self.scheduler else None,
-                'loss_func': self.loss_func.state_dict() if self.loss_func else None, 
-                'valid_loss' : loss.mean().detach().cpu() if loss else None, **kwargs
+               'model': self.model.state_dict() if self.model else None,
+               'optimizer': self.optimizer.state_dict() if self.optimizer else None,
+               'scheduler': self.scheduler.state_dict() if self.scheduler else None,
+               'loss_func': self.loss_func.state_dict() if self.loss_func else None,
+               'best_metric': best_metric,
             }
 
             torch.save(state, path)
 
-    def save_loss(self, label, loss, epoch, path=None):
+    def save_metrics(self, label, epoch, path=None, **metrics):
         if path is None or os.path.isdir(path):
-            path = os.path.join(self.loss_func_path if path is None else path, 
+            path = os.path.join(self.loss_path if path is None else path, 
                                 '{}_loss_{}_iter.ckpt'.format(label, epoch))
-        
-        """
-        if logy is not None and isinstance(logy, plt.Subplot):
-            logy.semilogy(range(epoch), loss, label=label)
-
-        if hist is not None and isinstance(hist, plt.Subplot):
-            hist.hist(loss, bins=20)
-
-        if plot is not None and isinstance(plot, plt.Subplot):
-            plot.plot(range(epoch), loss, label=label)
-        """
-        
-        if not isinstance(loss, torch.Tensor):
-            loss = torch.as_tensor(loss)
-        
-        torch.save(loss, path)
-
+        torch.save(metrics, path)
 
     def load_checkpoint(self, epoch=None, path=None):
         if path is None:
@@ -102,8 +82,8 @@ class Trainer:
 
         if epoch is None or isinstance(epoch, bool) and epoch:
             epoch = max(int(p.split('_')[1]) for p in os.listdir(path) if 'checkpoints' in p)
-        
-        path = os.path.join(path, 'checkpoints_{}_iter.ckpt'.format(epoch))
+
+        path = os.path.join(path, f'checkpoints_{load_epoch}_iter.ckpt')
         
         checkpoint = torch.load(path, map_location=self.device)
         checkkeys = ('model', 'scheduler', 'optimizer', 'loss_func')
@@ -111,13 +91,13 @@ class Trainer:
         for key in checkkeys:
             if self.__getattribute__(key) and checkpoint[key]:
                 self.__getattribute__(key).load_state_dict(checkpoint[key])
-
-        return {'epochs': epoch, **{key: value for key, value in checkpoint.items() 
-                                               if  key    not in checkkeys}}
-
-    def load_loss(self, label, epoch=None, path=None):
+                #del checkpoint[key]
+        
+        return load_epoch#, pd.DataFrame(checkpoint, columns=checkpoint.keys(), index=range(epoch))
+    
+    def load_metrics(self, label, epoch=None, path=None):
         if path is None:
-            path = self.loss_func_path
+            path = self.loss_path
 
         if not os.path.isdir(path):
             path = os.path.split(path)[0]
@@ -125,7 +105,7 @@ class Trainer:
         if not epoch:
             epoch = max(int(p.split('_')[2]) for p in os.listdir(path) if 'loss' in p)
         
-        path = os.path.join(path, '{}_loss_{}_iter.ckpt'.format(label, epoch))
+        path = os.path.join(path, f'{label}_loss_{epoch}_iter.ckpt')
 
         return torch.load(path, map_location=self.device)
 
@@ -134,51 +114,40 @@ class Trainer:
 
     def fit(self, epochs, train_dataset, 
             valid_dataset=None, 
-            load_iter=None,
-            save_iter=False, # save model and losses
-            save_loss=False, # save model and losses
-            plot_loss=False, # plot losses
-            best_only=True, # saves only best models
+            load_model=None,
+            save_model=False, # save model and losses
             verbose=True, # print and save logs
-            callbacks=[]):
+            callbacks=[], 
+            metrics={}):
+        
         self._stop_iter = False
-        train_loss_lst = torch.empty(epochs, device=self.device)
-        valid_loss_lst = torch.empty(epochs, device=self.device)
+        metrics.setdefault('loss', self.loss_func)
+        train_df = pd.DataFrame(columns=metrics.keys(), index=range(epochs))
+        valid_df = pd.DataFrame(columns=metrics.keys(), index=range(epochs))
 
-        if load_iter is not None:
-            load_iter = self.load_checkpoint(epoch=load_iter)['epochs']
-            train_loss_lst[:load_iter] = self.load_loss(label='train', epoch=load_iter)
-            valid_loss_lst[:load_iter] = self.load_loss(label='valid', epoch=load_iter)
+        if load_model is not None:
+            load_model = self.load_checkpoint(epoch=load_model)
+            train_df.update(self.load_metrics(label='train', epoch=load_model, path=None))
+            valid_df.update(self.load_metrics(label='valid', epoch=load_model, path=None))
         else:
-            load_iter = 0
+            load_model = 0
 
-        if isinstance(save_iter, int) and save_iter <= 0:
-            save_iter = False
+        if isinstance(save_model, int) and save_model <= 0:
+            save_model = False
 
-        progress_bar = range(epochs)
+        for epoch in range(epochs):
+            self.model.train()
+            loss_list = torch.zeros(len(train_dataset), len(metrics), device=self.device)
 
-        if verbose:
-            try:
-                progress_bar = tqdm(
-                    progress_bar,
-                    unit='epoch',
-                    initial=load_iter,
-                    file=os.sys.stdout,
-                    dynamic_ncols=True,
-                    desc='Train',
-                    ascii=True,
-                    colour='GREEN',
-                    )
-            except:
-                    visual = False
+            if verbose:
+                progress_bar = tqdm(train_dataset, unit='batch', 
+                        initial=load_model, file=os.sys.stdout, 
+                        dynamic_ncols=True, desc=f'Epoch:{epoch}', 
+                        ascii=True, colour='GREEN')
             else:
-                    visual = True
-        #self.loss_func = self.loss_func.to(device=self.device, dtype=self.xtype)
-
-        for epoch in progress_bar:
-
-            loss_list = torch.zeros(len(train_dataset), device=self.device)
-            for i, (features, y_true) in enumerate(train_dataset):
+                progress_bar = range(train_dataset)
+            
+            for i, (features, y_true) in enumerate(progress_bar):
                 y_true = y_true.to(device=self.device, dtype=self.ytype)
                 features = features.to(device=self.device, dtype=self.xtype)
 
@@ -189,123 +158,122 @@ class Trainer:
                 loss.backward()
                 self.optimizer.step()
                 
-                loss_list[i] = loss.detach()
+                for m, metric in enumerate(metrics.values()):
+                    loss_list[i, m] = metric(y_pred, y_true).detach()
+                
+                if verbose:
+                    progress_bar.set_postfix(**dict(zip(train_df.columns, loss_list[i].cpu().tolist())))
             
             if self.scheduler is not None:
-                self.scheduler.step(epoch)
+                self.scheduler.step()
             
-            
-            train_loss_lst[epoch] = loss_list.mean()
+            train_df.iloc[epoch] = loss_list.mean(dim=0).cpu()
 
             self.model.eval()
             with torch.no_grad():  # VALIDATION
-                loss_list = torch.zeros(len(valid_dataset), device=self.device)
+                """
+                loss_list = torch.zeros(len(valid_dataset), len(valid_df.columns), device=self.device)
                 for i, (features, y_true) in enumerate(valid_dataset):
                     y_true = y_true.to(device=self.device, dtype=self.ytype)
                     features = features.to(device=self.device, dtype=self.xtype)
 
                     y_pred = self.model(features)
                     loss = self.loss_func(y_pred, y_true)
-
-                    loss_list[i] = loss.mean()
-
-                valid_loss_lst[epoch] = loss_list.mean()
-
-                if visual:
-                    progress_bar.set_postfix(
-                        train_loss=train_loss_lst[epoch].cpu().item(),
-                        valid_loss=valid_loss_lst[epoch].cpu().item())
-                elif verbose:
-                    print("train_loss:", train_loss_lst[epoch].cpu().item(),
-                          "valid_loss:", valid_loss_lst[epoch].cpu().item())
                 
-            for callback in callbacks:
-                callback(self, epoch=epoch + 1,
-                    train_loss=train_loss_lst[epoch].clone(),
-                    valid_loss=valid_loss_lst[epoch].clone(),
-                    y_pred=y_pred.detach().clone(),
-                    y_true=y_true.detach().clone(),
-                    x_true=features.detach().clone()
-                )
+                    for m, metric in enumerate(metrics.values()):
+                        loss_list[i, m] = metric(y_pred, y_true).detach()
+                
+                loss_list = loss_list.mean(dim=0).cpu()
+                """
+                valid_df.iloc[epoch] = self.evaluate(
+                        valid_dataset, 
+                        load_model=False, 
+                        save_metrics=False,
+                        verbose=False, 
+                        callbacks=[], 
+                        metrics=metrics).mean(axis=0)
 
-            if isinstance(save_iter, int) and (epoch + 1) % save_iter == 0:
-                self.save_checkpoint(epoch=epoch + 1, loss=loss_list.mean() if best_only else None)
+                if verbose:
+                    progress_bar.set_postfix(**valid_df.iloc[epoch])
+                
+                for callback in callbacks:
+                    callback.on_epoch_end(self, epoch=epoch + 1,
+                        y_pred=y_pred.detach().cpu(),
+                        y_true=y_true.detach().cpu(),
+                        x_true=features.detach().cpu(),
+                      **train_df.iloc[epoch].add_prefix('train_'),
+                      **valid_df.iloc[epoch].add_prefix('valid_')
+                    )
+
+            #if save_model and (epoch + 1) % save_iter == 0:
+            #    self.save_checkpoint(epoch=epoch + 1, **valid_df if best_only else None)
             
             if self._stop_iter:
                 break
-
-        if plot_loss:
-            subplot_train(self.plot_path, 
-                train_loss=train_loss_lst.cpu().tolist(), 
-                valid_loss=valid_loss_lst.cpu().tolist())
-            
-        if isinstance(save_iter, bool) and save_iter:
-            self.save_checkpoint(epoch=load_iter + 1, loss=valid_loss_lst[-1] if best_only else None)
         
-        if save_loss:
-            self.save_loss(label='train', loss=train_loss_lst.cpu().tolist(), epoch=epochs)
-            self.save_loss(label='valid', loss=valid_loss_lst.cpu().tolist(), epoch=epochs)
+        for callback in callbacks:
+            callback.on_training_end(self, epoch=epoch + 1,
+              **train_df.iloc[epoch].add_prefix('train_'),
+              **valid_df.iloc[epoch].add_prefix('valid_')
+            )
+            
+        if save_model:
+            self.save_checkpoint(epoch=load_model + 1)
+            self.save_metrics(label='train', epoch=epochs, **train_df)
+            self.save_metrics(label='valid', epoch=epochs, **valid_df)
 
-        return None
+        return pd.concat((train_df.add_prefix('train_'), valid_df.add_prefix('valid_')), axis=1)
 
     def evaluate(self, test_dataset, 
-            load_iter=False,
-            save_loss=False, # save model and losses
-            plot_loss=False, # plot losses
+            load_model=False,
+            save_metrics=False, # save model and losses
             verbose=True, # print and save logs
-            callbacks=[]):
-        test_loss_lst = torch.zeros(len(test_dataset), device=self.device)
+            callbacks=[], metrics={}):
+        metrics.setdefault('loss', self.loss_func)
+        test_df = pd.DataFrame(columns=metrics.keys(), index=range(len(test_dataset)))
 
-        if load_iter is None or load_iter:
-            load_iter = self.load_checkpoint(epoch=load_iter)['epochs']
+        if load_model is None or load_model:
+            load_model = self.load_checkpoint(epoch=load_model)
 
         if verbose:
-            try:
-                progress_bar = tqdm(
-                    test_dataset,
-                    unit='case',
-                    file=os.sys.stdout,
-                    dynamic_ncols=True,
-                    desc='Evaluate@{}Ep'.format(load_liter),
-                    colour='GREEN',
-                    postfix=metrics,
-                    )
-            except:
-                    visual = False
-            else:
-                    visual = True
+            test_dataset = tqdm(
+                test_dataset,
+                unit='case',
+                file=os.sys.stdout,
+                dynamic_ncols=True,
+                desc=f'Test:{load_model}',
+                colour='GREEN',
+                postfix=metrics,
+                )
 
         self.model.eval()
         with torch.no_grad():
+            loss_list = torch.empty(len(test_dataset), len(test_df.columns), device=self.device)
             for i, (features, y_true) in enumerate(test_dataset):
                 y_true = y_true.to(device=self.device, dtype=self.ytype)
                 features = features.to(device=self.device, dtype=self.xtype)
 
                 y_pred = self.model(features)
                 loss = self.loss_func(y_pred, y_true)
-                test_loss_lst[i] = loss.mean()
+
+                for name, metric in metrics.items():
+                    test_df[name][i] = metric(y_pred, y_true).detach().cpu().item()
                 
                 for callback in callbacks:
-                    callback(self,
-                        test_loss=test_loss_lst[i].clone(),
-                        y_pred=y_pred.detach().clone(),
-                        y_true=y_true.detach().clone(),
-                        x_true=features.detach().clone()
+                    callback.on_testing_end(self, i,
+                        y_pred=y_pred.detach().cpu(),
+                        y_true=y_true.detach().cpu(),
+                        x_true=features.detach().cpu(),
+                      **test_df.iloc[i].add_prefix('test_')
                     )
 
-                if visual:
-                    test_dataset.set_postfix(test_loss=test_loss_lst[i].item())
-                elif verbose:
-                    print("test_loss", test_loss_lst[i].item())
+                if verbose:
+                    test_dataset.set_postfix(**test_df.iloc[i])
 
-        if plot_loss:
-            subplot_test(path=self.plot_path, epochs=load_iter, 
-                test_loss=test_loss_lst.cpu().tolist())
+        if save_metrics:
+            self.save_metrics(label='test', epoch=epochs, **test_df)
 
-        if save_loss:
-            self.save_loss(label='test', loss=test_loss_lst.cpu(), epoch=load_iter)
-
-        return None
+        return test_df
 
 
 

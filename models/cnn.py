@@ -4,7 +4,7 @@ import torch.nn as nn
 
 
 class ConvolutionBlock(nn.Module):
-    def __init__(self, *argv, kernel_size, stride=1, padding=0, maxpool=None, activation=nn.ReLU()):
+    def __init__(self, *argv, kernel_size, stride=1, padding=0, max_pool=None, activation=nn.ReLU()):
         assert len(argv) > 1
         super(ConvolutionBlock, self).__init__()
 
@@ -19,8 +19,8 @@ class ConvolutionBlock(nn.Module):
                 nn.BatchNorm2d(argv[i+1]),
                 activation]
 
-            if maxpool is not None:
-                layer.append(nn.MaxPool2d(*maxpool))
+            if max_pool is not None:
+                layer.append(nn.MaxPool2d(*max_pool))
             
             layers.append(nn.Sequential(*layer))
 
@@ -47,7 +47,6 @@ class DecoderBlock(nn.Module):
                                    kernel_size=kernel_size,
                                    stride=stride,
                                    padding=padding),
-                nn.BatchNorm2d(argv[i+1]),
                 activation)
                 )
 

@@ -8,6 +8,7 @@ import utils.data
 import utils.models
 #import utils.losses
 import utils.callbacks
+import utils.generators
 
 class PyTorchUtils:
     def __init__(self, description=None):
