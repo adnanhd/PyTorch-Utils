@@ -1,31 +1,8 @@
+import os, math
 import matplotlib.pyplot as plt
 
 
-def subplot_train(path, train_loss, valid_loss, **kwargs):
-    fig, ax = subplots()
-    epochs = len(train_loss)
-    ax.set_title('Training and Validation Loss in {} Iter'.format(epochs))
-    ax.set_xlabel('Epochs')
-    ax.set_ylabel('Loss')
-    # TODO: add 'x' and 'o' for train and valid
-    ax.semilogy(range(epochs), train_loss, label='train')
-    ax.semilogy(range(epochs), valid_loss, label='valid')
-    ax.legend()
-    plt.savefig(os.path.join(path, "train_loss_logy_{}_iter.png".format(epochs)))
-    plt.close(fig)
-
-
-def subplot_test(path, epochs, test_loss, **kwargs):
-    fig, ax = plt.subplots()
-    ax.set_title('Testing Loss in {} Case'.format(len(test_loss)))
-    ax.set_ylabel('Cases')
-    ax.set_xlabel('Loss (avg. {:.3e})'.format(torch.as_tensor(test_loss).mean()))
-    ax.hist(test_loss, bins=int(math.log2(len(test_loss) ** 2)))
-    plt.savefig(os.path.join(path, 'test_loss_hist_{}_iter.png'.format(epochs)))
-    plt.close(fig)
-
-
-def subplots(ylabel=None, xlabel=None, title=None, ax=None, fig=None):
+def _subplots(ylabel=None, xlabel=None, title=None, ax=None, fig=None):
     if not ax:
         fig, ax = plt.subplots()
     if ylabel:
@@ -37,3 +14,42 @@ def subplots(ylabel=None, xlabel=None, title=None, ax=None, fig=None):
 
     return fig, ax
 
+def semilogy(df, path=None, ax=None, fig=None, 
+        title=None, xlabel=None, ylabel=None, **kwargs):
+    if title is None:
+        title=f'Training and Validation Metrics in {len(df)} Iter'
+    if xlabel is None:
+        xlabel='Epochs'
+    if ylabel is None:
+        ylabel='Loss'
+    fig, ax = _subplots(title=title, xlabel=xlabel, ylabel=ylabel, fig=fig, ax=ax)
+
+    # TODO: add 'x' and 'o' for train and valid
+    ax.semilogy(df, 'o-')
+    ax.legend(df.columns)
+    if path is not None:
+        if os.path.isdir(path):
+            path = os.path.join(path, f'logy_{len(df)}_iter.png')
+        plt.savefig(path)
+        plt.close(fig)
+    return fix, ax
+
+def histogram(df, path=None, ax=None, fig=None, 
+        title=None, xlabel=None, ylabel=None, **kwargs):
+    if title is None:
+        title=f'Testing Metrics in {len(df)} Iter'
+    if xlabel is None:
+        xlabel='Metrics'
+    if ylabel is None:
+        ylabel='Cases'
+    fig, ax = _subplots(title=title, xlabel=xlabel, ylabel=ylabel, fig=fig, ax=ax)
+
+    # TODO: add 'x' and 'o' for train and valid
+    ax.hist(df, bins=int(math.log2(len(df) ** 2)))
+    ax.legend(df.columns)
+    if path is not None:
+        if os.path.isdir(path):
+            path = os.path.join(path, f'hist_{len(df)}_iter.png')
+        plt.savefig(path)
+        plt.close(fig)
+    return fig, ax
