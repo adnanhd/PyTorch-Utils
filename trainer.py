@@ -23,12 +23,7 @@ class Trainer:
             save_path=None, plot_path=None, loss_path=None, 
             device=None, xtype=None, ytype=None, *args, **kwargs):
         
-        # where state dicts are stored
         self.save_path=save_path if save_path else 'model'
-        # where loss dicts and train test logs are stored
-        self.loss_path=loss_path if loss_path else os.path.join(self.save_path, 'loss')
-        # where dataset visualizations are saved (png, etc.)
-        self.plot_path=plot_path if plot_path else os.path.join(self.save_path, 'plot')
         
         if device:
             self.device = device
@@ -46,8 +41,6 @@ class Trainer:
         self._stop_iter = True
 
         recursive_mkdir(self.save_path)
-        recursive_mkdir(self.plot_path)
-        recursive_mkdir(self.loss_path)
 
     # if loss is not then model saves the best results only
     def save_checkpoint(self, epoch=None, path=None, best_metric=None):
@@ -194,7 +187,9 @@ class Trainer:
                         metrics=metrics).mean(axis=0)
 
                 if verbose:
-                    progress_bar.set_postfix(**valid_df.iloc[epoch])
+                    progress_bar.set_postfix(
+                            **train_df.iloc[epoch].add_prefix('train_'),
+                            **valid_df.iloc[epoch].add_prefix('valid_'))
                 
                 for callback in callbacks:
                     callback.on_epoch_end(self, epoch=epoch + 1,
