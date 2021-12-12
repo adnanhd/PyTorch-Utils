@@ -3,27 +3,18 @@ import os, time, torch, math
 #from .plots import subplot_train, subplot_test
 from tqdm import tqdm, trange
 
-
-def recursive_mkdir(path, verbose=False):
+def makedirs(path):
     try:
-        os.mkdir(path)
-        if verbose: print("file created:", path)
-    except FileNotFoundError:
-        parent, child = os.path.split(path)
-        recursive_mkdir(parent, verbose=verbose)
-        os.mkdir(path)
-        if verbose: print("file created:", child)
+        os.makedirs(path)
     except FileExistsError:
-        if verbose: print("file exists:", path)
-
-
+        pass
 
 class Trainer:
-    def __init__(self, model, loss=None, optim=None, sched=None, 
-            save_path=None, plot_path=None, loss_path=None, 
-            device=None, xtype=None, ytype=None, *args, **kwargs):
+    def __init__(self, model, loss=None, optim=None, sched=None, loss_path=None,
+            save_path=None, device=None, xtype=None, ytype=None, *args, **kwargs):
         
         self.save_path=save_path if save_path else 'model'
+        self.loss_path=loss_path if loss_path else os.path.join(self.save_path, 'loss')
         
         if device:
             self.device = device
@@ -40,7 +31,8 @@ class Trainer:
 
         self._stop_iter = True
 
-        recursive_mkdir(self.save_path)
+        makedirs(self.save_path)
+        makedirs(self.loss_path)
 
     # if loss is not then model saves the best results only
     def save_checkpoint(self, epoch=None, path=None, best_metric=None):
@@ -213,7 +205,7 @@ class Trainer:
             )
             
         if save_model:
-            self.save_checkpoint(epoch=load_model + 1)
+            self.save_checkpoint(epoch=epochs)
             self.save_metrics(label='train', epoch=epochs, **train_df)
             self.save_metrics(label='valid', epoch=epochs, **valid_df)
 

@@ -1,20 +1,32 @@
-import math
+import math, os
 import datetime
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
+def makedirs(path):
+    try:
+        os.makedirs(path)
+    except FileExistsError:
+        pass
 
 class Generator:
-    def __init__(self):
-        pass
+    parent_dir = './'
+    def __init__(self, folder=None):
+        if folder:
+            folder = os.path.join(self.parent_dir, folder)
+        else:
+            folder = self.parent_dir
+
+        makedirs(folder)
+        self.folder = folder
 
 
 class FileGenerator(Generator):
-    def __init__(self, buf):
-        self._buffer = open(buf, 'w')
+    def __init__(self, buf, folder=None):
+        super(FileGenerator, self).__init__(folder=folder)
+        self._buffer = open(os.path.join(self.folder, buf), 'w')
     
-    @classmethod
     def create_main_page(self):
         return NotImplementedError()
 
@@ -43,7 +55,7 @@ class LatexGenerator(FileGenerator):
         self.fname = buf.split('.tex')[0]
         self._instances.append(self)
 
-        super(LatexGenerator, self).__init__(buf)
+        super(LatexGenerator, self).__init__(buf, folder='latex')
         
         self._buffer.write('\\documentclass{article}\n')
         self._buffer.write('\\usepackage[utf8]{inputenc}\n')
@@ -60,10 +72,9 @@ class LatexGenerator(FileGenerator):
         self._buffer.write('\\end{document}\n')
         super().__del__()
 
-    @classmethod
-    def create_main_page(cls):
-        with open(cls.main_page, 'w') as f:
-            for each in cls._instances:
+    def create_main_page(self):
+        with open(os.path.join(self.folder, self.main_page), 'w') as f:
+            for each in self._instances:
                 f.write(f'\\include{each.fname}')
 
     def __call__(self, *dfs):
@@ -80,17 +91,16 @@ class HTMLGenerator(FileGenerator):
         if not buf.endswith('.html'):
             buf = buf + '.html'
 
-        super(HTMLGenerator, self).__init__(buf)
+        super(HTMLGenerator, self).__init__(buf, folder='html')
         
         self.fname = buf.split('.html')[0]
         self._instances.append(self)
         self.basecontent = config
 
-    @classmethod
-    def create_main_page(cls):
-        with open(cls.main_page, 'w') as f:
-            for each in cls._instances:
-                f.write(str(cls.tags.a(each.fname, href=each.fname + '.html')) + str(cls.tags.br()))
+    def create_main_page(self):
+        with open(os.path.join(self.folder, self.main_page), 'w') as f:
+            for each in self._instances:
+                f.write(str(self.tags.a(each.fname, href=each.fname + '.html')) + str(self.tags.br()))
 
     def __call__(self, *dfs):
         self._buffer.write(str(self.tags.a('go back', href=self.main_page)) + str(self.tags.br()))
@@ -119,7 +129,7 @@ class _AxisGenerator(Generator):
 
 class FigureGenerator(Generator):
     def __init__(self, *axes, fig=None, path=None, **kwargs):
-        super(FigureGenerator, self).__init__()
+        super(FigureGenerator, self).__init__(folder='plot')
         
         if fig is None:
             fig = plt.figure()
@@ -129,9 +139,12 @@ class FigureGenerator(Generator):
         if isinstance(axes, plt.Axes):
             axes = np.array([axes])
 
+        if path is not None and os.path.isdir(path):
+            path = os.path.join(path, 'figure.png')
+
         self.fig = fig
         self.axes = axes
-        self.path = path
+        self.path = os.path.join(self.folder, path)
 
     def __getitem__(self, index):
         return self.axes[index]
