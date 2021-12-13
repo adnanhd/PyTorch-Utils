@@ -50,7 +50,7 @@ class WandbGenerator(Generator):
 class LatexGenerator(FileGenerator):
     main_page = 'index.tex'
     _instances = []
-    def __init__(self, buf, parent=None, project=None, entity=None, model=None, **config):
+    def __init__(self, buf, path=None, project=None, entity=None, model=None, **config):
         if not buf.endswith('.tex'):
             buf = buf + '.tex'
 
@@ -58,7 +58,7 @@ class LatexGenerator(FileGenerator):
         self.fname = buf.split('.tex')[0]
         self._instances.append(self)
 
-        super(LatexGenerator, self).__init__(buf, parent=parent, folder='latex')
+        super(LatexGenerator, self).__init__(buf, parent=path, folder='latex')
         
         self._buffer.write('\\documentclass{article}\n')
         self._buffer.write('\\usepackage[utf8]{inputenc}\n')
@@ -90,11 +90,11 @@ class HTMLGenerator(FileGenerator):
     _instances = []
     from dominate import tags
 
-    def __init__(self, buf, parent=None, project=None, entity=None, model=None, **config):
+    def __init__(self, buf, path=None, project=None, entity=None, model=None, **config):
         if not buf.endswith('.html'):
             buf = buf + '.html'
 
-        super(HTMLGenerator, self).__init__(buf, parent=parent, folder='html')
+        super(HTMLGenerator, self).__init__(buf, parent=path, folder='html')
         
         self.fname = buf.split('.html')[0]
         self._instances.append(self)
