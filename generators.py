@@ -12,19 +12,22 @@ def makedirs(path):
 
 class Generator:
     parent_dir = './'
-    def __init__(self, folder=None):
+    def __init__(self, parent=None, folder=None):
+        if parent is None:
+            parent = self.parent_dir
+
         if folder:
-            folder = os.path.join(self.parent_dir, folder)
+            folder = os.path.join(parent, folder)
         else:
-            folder = self.parent_dir
+            folder = parent
 
         makedirs(folder)
         self.folder = folder
 
 
 class FileGenerator(Generator):
-    def __init__(self, buf, folder=None):
-        super(FileGenerator, self).__init__(folder=folder)
+    def __init__(self, buf, parent=None, folder=None):
+        super(FileGenerator, self).__init__(parent=parent, folder=folder)
         self._buffer = open(os.path.join(self.folder, buf), 'w')
     
     def create_main_page(self):
@@ -47,7 +50,7 @@ class WandbGenerator(Generator):
 class LatexGenerator(FileGenerator):
     main_page = 'index.tex'
     _instances = []
-    def __init__(self, buf, project=None, entity=None, model=None, **config):
+    def __init__(self, buf, parent=None, project=None, entity=None, model=None, **config):
         if not buf.endswith('.tex'):
             buf = buf + '.tex'
 
@@ -55,7 +58,7 @@ class LatexGenerator(FileGenerator):
         self.fname = buf.split('.tex')[0]
         self._instances.append(self)
 
-        super(LatexGenerator, self).__init__(buf, folder='latex')
+        super(LatexGenerator, self).__init__(buf, parent=parent, folder='latex')
         
         self._buffer.write('\\documentclass{article}\n')
         self._buffer.write('\\usepackage[utf8]{inputenc}\n')
@@ -87,11 +90,11 @@ class HTMLGenerator(FileGenerator):
     _instances = []
     from dominate import tags
 
-    def __init__(self, buf, project=None, entity=None, model=None, **config):
+    def __init__(self, buf, parent=None, project=None, entity=None, model=None, **config):
         if not buf.endswith('.html'):
             buf = buf + '.html'
 
-        super(HTMLGenerator, self).__init__(buf, folder='html')
+        super(HTMLGenerator, self).__init__(buf, parent=parent, folder='html')
         
         self.fname = buf.split('.html')[0]
         self._instances.append(self)
@@ -129,7 +132,7 @@ class _AxisGenerator(Generator):
 
 class FigureGenerator(Generator):
     def __init__(self, *axes, fig=None, path=None, **kwargs):
-        super(FigureGenerator, self).__init__(folder='plot')
+        super(FigureGenerator, self).__init__(parent=path, folder='plot')
         
         if fig is None:
             fig = plt.figure()
@@ -139,12 +142,8 @@ class FigureGenerator(Generator):
         if isinstance(axes, plt.Axes):
             axes = np.array([axes])
 
-        if path is not None and os.path.isdir(path):
-            path = os.path.join(path, 'figure.png')
-
         self.fig = fig
         self.axes = axes
-        self.path = os.path.join(self.folder, path)
 
     def __getitem__(self, index):
         return self.axes[index]
@@ -155,17 +154,16 @@ class FigureGenerator(Generator):
     def __setitem__(self, index, axis):
         self.axes[index] = axis(self.axes[index])
 
-    def plot(self, *argv, **kwargs):
-        if self.path is None:
+    def plot(self, path=None, *argv, **kwargs):
+        if path is None:
             plt.show()
         else:
-            plt.savefig(self.path)
+            plt.savefig(os.path.join(self.folder, path))
 
     def __del__(self):
         plt.close(self.fig)
 
     class Semilogy(_AxisGenerator):
-        default_path = 'semilogy.png'
         def __init__(self, df, title=None, xlabel=None, ylabel=None):
             self.df = df
             
@@ -186,7 +184,6 @@ class FigureGenerator(Generator):
             return ax
     
     class Histogram(_AxisGenerator):
-        default_path = 'histogram.png'
         def __init__(self, df, ax=None, title=None, xlabel=None, ylabel=None):
             self.df = df
             
