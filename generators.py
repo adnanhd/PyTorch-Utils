@@ -27,7 +27,9 @@ class Generator:
 
 class FileGenerator(Generator):
     def __init__(self, buf, parent=None, folder=None):
+        assert isinstance(buf, str)
         super(FileGenerator, self).__init__(parent=parent, folder=folder)
+        self.fname = buf
         self._buffer = open(os.path.join(self.path, buf), 'w')
     
     def create_main_page(self):
@@ -115,14 +117,15 @@ class HTMLGenerator(FileGenerator):
         for df in dfs:
             df.to_html(self._buffer)
 
-    def add_figure(self, fig):
-        fname = "figure.png"
-        path = os.path.join(self.path, fname)
-        i = 0
-        while os.path.isfile(path):
-            fname = f"figure{i}.png"
+    def add_figure(self, fig, fname=None):
+        if fname is None:
+            fname = self.fname + ".png"
             path = os.path.join(self.path, fname)
-            i += 1
+            i = 0
+            while os.path.isfile(path):
+                fname = self.fname + f"{i}.png"
+                path = os.path.join(self.path, fname)
+                i += 1
         fig.plot(path=path)
         self._buffer.write(str(self.tags.img(src=fname)))
 
