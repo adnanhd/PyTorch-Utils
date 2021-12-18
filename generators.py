@@ -120,7 +120,7 @@ class HTMLGenerator(FileGenerator):
         for df in dfs:
             df.to_html(self._buffer)
 
-    def add_figure(self, fig: FigureGenerator):
+    def add_figure(self, fig):
         path = os.path.join(self.path, "figure.png")
         i = 0
         while os.path.isfile(path):
