@@ -116,7 +116,7 @@ class HTMLGenerator(FileGenerator):
         if not entity.endswith('.html'):
             entity = entity + '.html'
 
-        super(HTMLGenerator, self).__init__(entity, parent=project, folder='html', hierarchy=main_page)
+        super(HTMLGenerator, self).__init__(entity, parent=project, folder='html', hierarchy=create_main_page)
         
         self.fname = entity.split('.html')[0]
         self._instances.append(self)
