@@ -120,8 +120,14 @@ class HTMLGenerator(FileGenerator):
         for df in dfs:
             df.to_html(self._buffer)
 
-    def add_image(self, path):
-       self._buffer.write(str(self.tags.img(href=path)))
+    def add_figure(self, fig: FigureGenerator):
+        path = os.path.join(self.path, "figure.png")
+        i = 0
+        while os.path.isfile(path):
+            path = os.path.join(self.path, f"figure{i}.png")
+            i += 1
+        fig.plot(path=path)
+        self._buffer.write(str(self.tags.img(href=path)))
 
 
 class _AxisGenerator(Generator):
@@ -167,11 +173,18 @@ class FigureGenerator(Generator):
         self.axes[index] = axis(self.axes[index])
 
     def plot(self, fname=None, path=None, *argv, **kwargs):
-        if path is None and fname is None:
+        """
+                f_none f_exist
+        p_none  show    save(s.p, f)
+        p_exist save(p) save(p, f)
+        """
+        if fname is None and path is None:
             plt.show()
-        elif fname is not None:
-            plt.savefig(os.path.join(self.folder, fname))
         else:
+            if path is None:
+                path = self.path
+            if fname is not None:
+                path = os.path.normpath(os.path.join(path, fname))
             plt.savefig(path)
 
     def __del__(self):
