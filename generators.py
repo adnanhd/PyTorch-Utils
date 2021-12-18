@@ -26,9 +26,18 @@ class Generator:
 
 
 class FileGenerator(Generator):
-    def __init__(self, buf, parent=None, folder=None, hierarchy=False):
+    def __init__(self, buf, parent=None, folder=None, hierarchy=False, preserve=False):
         assert isinstance(buf, str)
         super(FileGenerator, self).__init__(parent=parent, folder=folder)
+        if preserve:
+            fname = buf.split(".")
+            fend = fname.pop(-1)
+            fname = ".".join(fname)
+            buf = f"{fname}.{fend}"
+            i = 0
+            while os.path.isfile(buf):
+                buf = f"{fname}{i}.{fend}"
+                i = i + 1
         self.fname = buf
         self._buffer = open(os.path.join(self.path, buf), 'w')
         self.hierarchy = hierarchy
@@ -66,7 +75,7 @@ class WandbGenerator(Generator):
         pass
 
 class LatexGenerator(FileGenerator):
-    main_page = 'index.tex'
+    main_page = 'main.tex'
     _instances = []
     def __init__(self, entity, project=None, model=None, **config):
         if not entity.endswith('.tex'):
@@ -112,11 +121,11 @@ class HTMLGenerator(FileGenerator):
     _instances = []
     from dominate import tags
 
-    def __init__(self, entity, project=None, model=None, create_main_page=False, **config):
+    def __init__(self, entity, project=None, model=None, create_main_page=False, overwrite=True, **config):
         if not entity.endswith('.html'):
             entity = entity + '.html'
 
-        super(HTMLGenerator, self).__init__(entity, parent=project, folder='html', hierarchy=create_main_page)
+        super(HTMLGenerator, self).__init__(entity, parent=project, folder='html', hierarchy=create_main_page, preserve=not overwrite)
         
         self.fname = entity.split('.html')[0]
         self._instances.append(self)
