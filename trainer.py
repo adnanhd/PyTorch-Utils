@@ -3,7 +3,7 @@ import os, time, torch, math
 #from .plots import subplot_train, subplot_test
 from tqdm import tqdm, trange
 
-def makedirs(path):
+def makedirs(path, verbose=False):
     try:
         os.makedirs(path)
     except FileExistsError:
@@ -19,23 +19,21 @@ class Trainer:
         if device:
             self.device = device
         else:
-            self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
+            self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
         self.xtype = xtype if xtype else torch.float
         self.ytype = ytype if ytype else torch.float
         
-        self.model = model.to(device=device, dtype=xtype)
+        self.model = model.to(device=self.device, dtype=self.xtype)
         self.loss_func = loss
         self.optimizer = optim
         self.scheduler = sched
 
         self._stop_iter = True
 
-        makedirs(self.save_path)
-        makedirs(self.loss_path)
-
     # if loss is not then model saves the best results only
     def save_checkpoint(self, epoch=None, path=None, best_metric=None):
+        makedirs(self.save_path)
         if path is None or os.path.isdir(path):
             path = os.path.join(self.save_path if path is None else path, 
                                 'checkpoints_{}_iter.ckpt'.format(epoch))
@@ -53,6 +51,7 @@ class Trainer:
             torch.save(state, path)
 
     def save_metrics(self, label, epoch, path=None, **metrics):
+        makedirs(self.loss_path)
         if path is None or os.path.isdir(path):
             path = os.path.join(self.loss_path if path is None else path, 
                                 '{}_loss_{}_iter.ckpt'.format(label, epoch))
@@ -130,7 +129,7 @@ class Trainer:
                         dynamic_ncols=True, desc=f'Epoch:{epoch}', 
                         ascii=True, colour='GREEN')
             else:
-                progress_bar = range(train_dataset)
+                progress_bar = train_dataset
             
             for i, (features, y_true) in enumerate(progress_bar):
                 y_true = y_true.to(device=self.device, dtype=self.ytype)
@@ -149,52 +148,37 @@ class Trainer:
                 if verbose:
                     progress_bar.set_postfix(**dict(zip(train_df.columns, loss_list[i].cpu().tolist())))
             
-            if self.scheduler is not None:
-                self.scheduler.step()
-            
             train_df.iloc[epoch] = loss_list.mean(dim=0).cpu()
 
             self.model.eval()
             with torch.no_grad():  # VALIDATION
-                """
-                loss_list = torch.zeros(len(valid_dataset), len(valid_df.columns), device=self.device)
-                for i, (features, y_true) in enumerate(valid_dataset):
-                    y_true = y_true.to(device=self.device, dtype=self.ytype)
-                    features = features.to(device=self.device, dtype=self.xtype)
+                if valid_dataset is not None:
+                    valid_df.iloc[epoch] = self.evaluate(
+                            valid_dataset, 
+                            load_model=False, 
+                            save_metrics=False,
+                            verbose=False, 
+                            callbacks=[], 
+                            metrics=metrics).mean(axis=0)
 
-                    y_pred = self.model(features)
-                    loss = self.loss_func(y_pred, y_true)
-                
-                    for m, metric in enumerate(metrics.values()):
-                        loss_list[i, m] = metric(y_pred, y_true).detach()
-                
-                loss_list = loss_list.mean(dim=0).cpu()
-                """
-                valid_df.iloc[epoch] = self.evaluate(
-                        valid_dataset, 
-                        load_model=False, 
-                        save_metrics=False,
-                        verbose=False, 
-                        callbacks=[], 
-                        metrics=metrics).mean(axis=0)
-
-                if verbose:
-                    progress_bar.set_postfix(
-                            **train_df.iloc[epoch].add_prefix('train_'),
-                            **valid_df.iloc[epoch].add_prefix('valid_'))
-                
+                    if verbose:
+                        progress_bar.set_postfix(
+                                **train_df.iloc[epoch].add_prefix('train_'),
+                                **valid_df.iloc[epoch].add_prefix('valid_'))
+                    
                 for callback in callbacks:
-                    callback.on_epoch_end(self, epoch=epoch + 1,
+                    callback.on_epoch_end(trainer=self, 
+                        epoch=epoch + 1,
                         y_pred=y_pred.detach().cpu(),
                         y_true=y_true.detach().cpu(),
                         x_true=features.detach().cpu(),
-                      **train_df.iloc[epoch].add_prefix('train_'),
-                      **valid_df.iloc[epoch].add_prefix('valid_')
+                    **train_df.iloc[epoch].add_prefix('train_'),
+                    **valid_df.iloc[epoch].add_prefix('valid_')
                     )
-
-            #if save_model and (epoch + 1) % save_iter == 0:
-            #    self.save_checkpoint(epoch=epoch + 1, **valid_df if best_only else None)
             
+            if self.scheduler is not None:
+                self.scheduler.step()
+
             if self._stop_iter:
                 break
         
@@ -247,11 +231,11 @@ class Trainer:
                     test_df[name][i] = metric(y_pred, y_true).detach().cpu().item()
                 
                 for callback in callbacks:
-                    callback.on_testing_end(self, i,
+                    callback.on_testing_end(trainer=self, 
                         y_pred=y_pred.detach().cpu(),
                         y_true=y_true.detach().cpu(),
                         x_true=features.detach().cpu(),
-                      **test_df.iloc[i].add_prefix('test_')
+                      #**test_df.iloc[i].add_prefix('test_')
                     )
 
                 if verbose:

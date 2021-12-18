@@ -1,9 +1,8 @@
 #!/usr/bin/env python3.6
 from .mlp import FullyConnectedBlock
 from .cnn import ConvolutionNeuralNetwork, ConvolutionBlock, EncoderBlock, DecoderBlock
+from .autoencoders import AutoencoderCNN, AutoencoderMLP
 from .ausm_model import CFD_CNN as AUSM_CFD_CNN
-from .auto_cnn import AutoencoderCNN
-from .auto_mlp import AutoencoderMLP
 
 
 def BezierMLP(li=70, l1=256, l2=128, l3=64, lo=12):
