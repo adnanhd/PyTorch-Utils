@@ -24,6 +24,10 @@ class Generator:
         makedirs(folder)
         self.folder = folder
 
+    @property
+    def path(self):
+        return os.path.join(self.parent, self.folder)
+
 
 class FileGenerator(Generator):
     def __init__(self, buf, parent=None, folder=None):
@@ -60,19 +64,19 @@ class LatexGenerator(FileGenerator):
 
         super(LatexGenerator, self).__init__(buf, parent=path, folder='latex')
         
-        self._buffer.write('\\documentclass{article}\n')
-        self._buffer.write('\\usepackage[utf8]{inputenc}\n')
-        self._buffer.write('\\usepackage{booktabs}\n')
+        self._buffer.write(r'\documentclass{article}')
+        self._buffer.write(r'\usepackage[utf8]{inputenc}')
+        self._buffer.write(r'\usepackage{booktabs}')
         
-        self._buffer.write('\\title{' + str(project) + '}\n')
-        self._buffer.write('\\author{' + str(entity) + '}\n')
-        self._buffer.write('\\date{December 2021}\n')
+        self._buffer.write(r'\title{' + str(project) + '}')
+        self._buffer.write(r'\author{' + str(entity) + '}')
+        self._buffer.write(r'\date{December 2021}')
 
-        self._buffer.write('\\begin{document}\n')
-        self._buffer.write('\\maketitle\n')
+        self._buffer.write(r'\begin{document}')
+        self._buffer.write(r'\maketitle')
 
     def __del__(self):
-        self._buffer.write('\\end{document}\n')
+        self._buffer.write(r'\end{document}')
         super().__del__()
 
     def create_main_page(self):
@@ -83,7 +87,11 @@ class LatexGenerator(FileGenerator):
     def __call__(self, *dfs):
         for df in dfs:
             df.to_html(self._buffer)
-           
+
+   def add_image(self, path):
+       self._buffer.write(r"\begin{figure}\includegraphics[width=\linewidth]{" + path \
+                + r"}\caption{A boat.}\label{fig:boat1}\end{figure}")
+
 
 class HTMLGenerator(FileGenerator):
     main_page = 'index.html'
@@ -110,6 +118,9 @@ class HTMLGenerator(FileGenerator):
         
         for df in dfs:
             df.to_html(self._buffer)
+
+   def add_image(self, path):
+       self._buffer.write(str(self.tags.img(href=path)))
 
 
 class _AxisGenerator(Generator):
@@ -154,11 +165,13 @@ class FigureGenerator(Generator):
     def __setitem__(self, index, axis):
         self.axes[index] = axis(self.axes[index])
 
-    def plot(self, path=None, *argv, **kwargs):
-        if path is None:
+    def plot(self, fname=None, path=None, *argv, **kwargs):
+        if path is None and fname is None:
             plt.show()
+        elif fname is not None:
+            plt.savefig(os.path.join(self.folder, fname))
         else:
-            plt.savefig(os.path.join(self.folder, path))
+            plt.savefig(path)
 
     def __del__(self):
         plt.close(self.fig)
