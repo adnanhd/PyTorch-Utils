@@ -16,14 +16,9 @@ class Generator:
         if parent is None:
             parent = self.parent_dir
 
-        if folder:
-            folder = os.path.join(parent, folder)
-        else:
-            folder = parent
-
-        makedirs(folder)
         self.parent = parent
         self.folder = folder
+        makedirs(self.path)
 
     @property
     def path(self):
@@ -33,7 +28,7 @@ class Generator:
 class FileGenerator(Generator):
     def __init__(self, buf, parent=None, folder=None):
         super(FileGenerator, self).__init__(parent=parent, folder=folder)
-        self._buffer = open(os.path.join(self.folder, buf), 'w')
+        self._buffer = open(os.path.join(self.path, buf), 'w')
     
     def create_main_page(self):
         return NotImplementedError()
@@ -121,13 +116,15 @@ class HTMLGenerator(FileGenerator):
             df.to_html(self._buffer)
 
     def add_figure(self, fig):
-        path = os.path.join(self.path, "figure.png")
+        fname = "figure.png"
+        path = os.path.join(self.path, fname)
         i = 0
         while os.path.isfile(path):
-            path = os.path.join(self.path, f"figure{i}.png")
+            fname = f"figure{i}.png"
+            path = os.path.join(self.path, fname)
             i += 1
         fig.plot(path=path)
-        self._buffer.write(str(self.tags.img(href=path)))
+        self._buffer.write(str(self.tags.img(src=fname)))
 
 
 class _AxisGenerator(Generator):
