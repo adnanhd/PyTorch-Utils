@@ -20,7 +20,10 @@ class ConvolutionBlock(nn.Module):
                 activation]
 
             if max_pool is not None:
-                layer.append(nn.MaxPool2d(*max_pool))
+                if isinstance(max_pool, dict):
+                    layer.append(nn.MaxPool2d(**max_pool))
+                else:
+                    layer.append(nn.MaxPool2d(*max_pool))
             
             layers.append(nn.Sequential(*layer))
 
@@ -59,5 +62,8 @@ class DecoderBlock(nn.Module):
 def ConvolutionNeuralNetwork(*argv, **kwargs):
     return nn.Sequential(
             ConvolutionBlock(*argv[:-1], **kwargs),
-            nn.Linear(argv[-2], argv[-1])
-            )
+            nn.Flatten(), 
+            nn.Linear(argv[-2], argv[-1]),
+            nn.Sigmoid()
+        )
+

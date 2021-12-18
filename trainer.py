@@ -1,6 +1,6 @@
 import pandas as pd
 import os, time, torch, math
-#from .plots import subplot_train, subplot_test
+from .metrics import loss_to_metric
 from tqdm import tqdm, trange
 
 def makedirs(path):
@@ -106,7 +106,7 @@ class Trainer:
             metrics={}):
         
         self._stop_iter = False
-        metrics.setdefault('loss', self.loss_func)
+        metrics.setdefault('loss', loss_to_metric(self.loss_func))
         train_df = pd.DataFrame(columns=metrics.keys(), index=range(epochs))
         valid_df = pd.DataFrame(columns=metrics.keys(), index=range(epochs))
 
@@ -144,7 +144,7 @@ class Trainer:
                 self.optimizer.step()
                 
                 for m, metric in enumerate(metrics.values()):
-                    loss_list[i, m] = metric(y_pred, y_true).detach()
+                    loss_list[i, m] = metric(y_true=y_true.detach().cpu(), y_pred=y_pred.detach().cpu()).item()
                 
                 if verbose:
                     progress_bar.set_postfix(**dict(zip(train_df.columns, loss_list[i].cpu().tolist())))
@@ -179,9 +179,15 @@ class Trainer:
                         metrics=metrics).mean(axis=0)
 
                 if verbose:
+                    df = pd.DataFrame((train_df.iloc[epoch], valid_df.iloc[epoch]), 
+                                      columns=metrics.keys(), index=['train', 'valid'])
+
+                    print(df)
+                    """
                     progress_bar.set_postfix(
                             **train_df.iloc[epoch].add_prefix('train_'),
                             **valid_df.iloc[epoch].add_prefix('valid_'))
+                    """
                 
                 for callback in callbacks:
                     callback.on_epoch_end(self, epoch=epoch + 1,
@@ -216,7 +222,7 @@ class Trainer:
             save_metrics=False, # save model and losses
             verbose=True, # print and save logs
             callbacks=[], metrics={}):
-        metrics.setdefault('loss', self.loss_func)
+        metrics.setdefault('loss', loss_to_metric(self.loss_func))
         test_df = pd.DataFrame(columns=metrics.keys(), index=range(len(test_dataset)))
 
         if load_model is None or load_model:
@@ -244,7 +250,7 @@ class Trainer:
                 loss = self.loss_func(y_pred, y_true)
 
                 for name, metric in metrics.items():
-                    test_df[name][i] = metric(y_pred, y_true).detach().cpu().item()
+                    test_df[name][i] = metric(y_true=y_true.detach().cpu(), y_pred=y_pred.detach().cpu()).item()
                 
                 for callback in callbacks:
                     callback.on_testing_end(self, i,
