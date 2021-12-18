@@ -52,15 +52,15 @@ class WandbGenerator(Generator):
 class LatexGenerator(FileGenerator):
     main_page = 'index.tex'
     _instances = []
-    def __init__(self, buf, path=None, project=None, entity=None, model=None, **config):
-        if not buf.endswith('.tex'):
-            buf = buf + '.tex'
+    def __init__(self, entity, project=None, model=None, **config):
+        if not entity.endswith('.tex'):
+            entity = entity + '.tex'
 
         
-        self.fname = buf.split('.tex')[0]
+        self.fname = entity.split('.tex')[0]
         self._instances.append(self)
 
-        super(LatexGenerator, self).__init__(buf, parent=path, folder='latex')
+        super(LatexGenerator, self).__init__(entity, project=path, folder='latex')
         
         self._buffer.write(r'\documentclass{article}')
         self._buffer.write(r'\usepackage[utf8]{inputenc}')
@@ -96,13 +96,13 @@ class HTMLGenerator(FileGenerator):
     _instances = []
     from dominate import tags
 
-    def __init__(self, buf, path=None, project=None, entity=None, model=None, **config):
-        if not buf.endswith('.html'):
-            buf = buf + '.html'
+    def __init__(self, entity, project=None, model=None, **config):
+        if not entity.endswith('.html'):
+            entity = entity + '.html'
 
-        super(HTMLGenerator, self).__init__(buf, parent=path, folder='html')
+        super(HTMLGenerator, self).__init__(entity, parent=project, folder='html')
         
-        self.fname = buf.split('.html')[0]
+        self.fname = entity.split('.html')[0]
         self._instances.append(self)
         self.basecontent = config
 
@@ -149,8 +149,8 @@ class _AxisGenerator(Generator):
 
 
 class FigureGenerator(Generator):
-    def __init__(self, *axes, fig=None, path=None, **kwargs):
-        super(FigureGenerator, self).__init__(parent=path, folder='plot')
+    def __init__(self, *axes, fig=None, project=None, **kwargs):
+        super(FigureGenerator, self).__init__(parent=project, folder='plot')
         
         if fig is None:
             self.fig = plt.figure()

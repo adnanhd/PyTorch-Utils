@@ -6,6 +6,12 @@ def loss_to_metric(loss):
 
     return metric
 
+
+def one_hot_decode(score):
+    def decoded_score(y_pred, y_true):
+        return score(y_pred=y_pred.argmax(axis=1), y_true=y_true.argmax(axis=1))
+        
+
 def precision_score(y_true:torch.Tensor, y_pred:torch.Tensor, is_training=False) -> torch.Tensor:
     '''Calculate F1 score. Can work with gpu tensors
     
