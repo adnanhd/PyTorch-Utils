@@ -22,11 +22,12 @@ class Generator:
             folder = parent
 
         makedirs(folder)
+        self.parent = parent
         self.folder = folder
 
     @property
     def path(self):
-        return os.path.join(self.parent, self.folder)
+        return os.path.normpath(os.path.join(self.parent, self.folder))
 
 
 class FileGenerator(Generator):
@@ -88,7 +89,7 @@ class LatexGenerator(FileGenerator):
         for df in dfs:
             df.to_html(self._buffer)
 
-   def add_image(self, path):
+    def add_image(self, path):
        self._buffer.write(r"\begin{figure}\includegraphics[width=\linewidth]{" + path \
                 + r"}\caption{A boat.}\label{fig:boat1}\end{figure}")
 
@@ -119,7 +120,7 @@ class HTMLGenerator(FileGenerator):
         for df in dfs:
             df.to_html(self._buffer)
 
-   def add_image(self, path):
+    def add_image(self, path):
        self._buffer.write(str(self.tags.img(href=path)))
 
 
