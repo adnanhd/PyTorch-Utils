@@ -61,9 +61,9 @@ class DecoderBlock(nn.Module):
 
 def ConvolutionNeuralNetwork(*layers, **kwargs):
     return nn.Sequential(
-            ConvolutionBlock(*argv[:-1], **kwargs),
+            ConvolutionBlock(*layers[:-1], **kwargs),
             nn.Flatten(), 
-            nn.Linear(argv[-2], argv[-1]),
+            nn.Linear(layers[-2], layers[-1]),
             nn.Sigmoid()
         )
 
