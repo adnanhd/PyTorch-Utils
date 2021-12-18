@@ -68,6 +68,9 @@ class Datum(ABC):
     def hash(cls):
         return hashlib.sha256(bytes(cls.suffix, encoding='utf-8')).hexdigest()
 
+    def __iter__(self):
+        return iter(self.data)
+
 
 class Image(Datum):
     y_min = -.256
@@ -158,6 +161,7 @@ class FlowField(Datum):
     shape = (6, 256, 256)
     linspace = None
     suffix = '_flowfield.mat'
+    keys = ['Rho', 'U', 'V'] # ['P', 'Rho', 'T', 'U', 'V', 'Ma', 'Cp']
 
     def __init__(self, cdf):
         self.data = cdf.reshape(FlowField.shape)
@@ -167,34 +171,28 @@ class FlowField(Datum):
         path = os.path.join(path, name, name + cls.suffix)
         
         y = scipy.io.loadmat(path)
-        P = torch.from_numpy(y['P'])
-        Rho = torch.from_numpy(y['Rho'])
-        T = torch.from_numpy(y['T'])
-        U = torch.from_numpy(y['U'])
-        V = torch.from_numpy(y['V'])
-        Ma = torch.from_numpy(y['Ma'])
-        Cp = torch.from_numpy(y['Cp'])    
-        return cls(torch.stack([Rho, U, V, P, T, Ma],dim=0))
+        return cls(torch.stack([torch.from_numpy(y[key]) for key in cls.keys], dim=0))
     
     def subplot(self, fig=None, axes=None, title=None, color=None, label=None):
         if not fig:
             fig = plt.figure()
         
         if not axes:
-            ax1, ax2, ax3, ax4 = fig.subplots(4)
+            axes = fig.subplots(self.shape[0])
         else:
-            ax1, ax2, ax3, ax4 = axes
-            assert all(map(lambda ax: isinstance(ax, plt.Axes), (ax1, ax2, ax3, ax4)))
+            assert all(map(lambda ax: isinstance(ax, plt.Axes), axes))
 
         if title:
             ax1.set_title(title)
 
-        fig.colorbar(ax1.contourf(self.data[0], cmap=plt.cm.jet), ax=ax1)
-        fig.colorbar(ax2.contourf(self.data[1], cmap=plt.cm.jet), ax=ax2)
-        fig.colorbar(ax3.contourf(self.data[2], cmap=plt.cm.jet), ax=ax3)
-        fig.colorbar(ax4.contourf(self.data[3], cmap=plt.cm.jet), ax=ax4)
+        if isinstance(axes, plt.Axes):
+            axes = tuple([axes])
 
-        return fig, (ax1, ax2, ax3, ax4)
+        for data, ax, key in zip(self.data, axes, self.keys):
+            ax.set_title(key)
+            fig.colorbar(ax.contourf(data, cmap=plt.cm.jet), ax=ax)
+
+        return fig, axes
 
 class DistFunc(Datum):
     shape = (1, 256, 256)
@@ -202,17 +200,30 @@ class DistFunc(Datum):
     suffix = '_distFunc.mat'
 
     def __init__(self, cdf):
-        self.data = cdf #.reshape(DistFunc.shape)
+        assert cdf.shape == self.__class__.shape
+        self.data = cdf.reshape(DistFunc.shape)
     
     @classmethod
-    def load(cls, path, name):
-        path = os.path.join(path, name, name + cls.suffix)
+    def load(cls, path, name=None):
+        if name is not None:
+            path = os.path.join(path, name, name + cls.suffix)
         
         x = scipy.io.loadmat(path)
         DF = torch.from_numpy(x['DF'])
         return cls(DF.unsqueeze(dim=0))
     
     def subplot(self, fig=None, ax=None, title=None, color=None, label=None):
+        if not fig:
+            fig = plt.figure()
+        
+        if not ax:
+            ax = fig.subplots()
+
+        if title:
+            ax1.set_title(title)
+
+        fig.colorbar(ax.contourf(self.data[0], cmap=plt.cm.jet), ax=ax)
+
         return fig, ax
 
 class SkinFriction(Datum):

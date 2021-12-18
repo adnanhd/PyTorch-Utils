@@ -150,15 +150,12 @@ class FigureGenerator(Generator):
         super(FigureGenerator, self).__init__(parent=path, folder='plot')
         
         if fig is None:
-            fig = plt.figure()
+            self.fig = plt.figure()
 
-        axes = fig.subplots(*axes, **kwargs)
+        self.axes = self.fig.subplots(*axes, **kwargs)
         
-        if isinstance(axes, plt.Axes):
-            axes = np.array([axes])
-
-        self.fig = fig
-        self.axes = axes
+        if isinstance(self.axes, plt.Axes):
+            self.axes= np.array([self.axes])
 
     def __getitem__(self, index):
         return self.axes[index]
