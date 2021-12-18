@@ -1,5 +1,11 @@
 import torch
 
+def loss_to_metric(loss):
+    def metric(y_true, y_pred):
+        return loss(input=y_pred, target=y_true)
+
+    return metric
+
 def precision_score(y_true:torch.Tensor, y_pred:torch.Tensor, is_training=False) -> torch.Tensor:
     '''Calculate F1 score. Can work with gpu tensors
     
