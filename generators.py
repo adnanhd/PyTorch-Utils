@@ -26,17 +26,33 @@ class Generator:
 
 
 class FileGenerator(Generator):
-    def __init__(self, buf, parent=None, folder=None):
+    def __init__(self, buf, parent=None, folder=None, hierarchy=False):
         assert isinstance(buf, str)
         super(FileGenerator, self).__init__(parent=parent, folder=folder)
         self.fname = buf
         self._buffer = open(os.path.join(self.path, buf), 'w')
+        self.hierarchy = hierarchy
     
-    def create_main_page(self):
+    def add_parent_page(self):
+        return NotImplementedError()
+
+    def add_dataframe(self):
+        return NotImplementedError()
+
+    def add_figure(self):
         return NotImplementedError()
 
     def __del__(self):
+        if self.hierarchy:
+            self.add_parent_page()
         self._buffer.close()
+
+    def __call__(self, *args):
+        for arg in args:
+            if isinstance(arg, pd.DataFrame):
+                self.add_dataframe(arg)
+            elif isinstance(arg, FigureGenerator):
+                self.add_figure(arg)
 
 
 class WandbGenerator(Generator):
@@ -77,12 +93,12 @@ class LatexGenerator(FileGenerator):
         self._buffer.write(r'\end{document}')
         super().__del__()
 
-    def create_main_page(self):
+    def add_parent_page(self):
         with open(os.path.join(self.folder, self.main_page), 'w') as f:
             for each in self._instances:
                 f.write(f'\\include{each.fname}')
 
-    def __call__(self, *dfs):
+    def add_dataframe(self, *dfs):
         for df in dfs:
             df.to_html(self._buffer)
 
@@ -96,23 +112,24 @@ class HTMLGenerator(FileGenerator):
     _instances = []
     from dominate import tags
 
-    def __init__(self, entity, project=None, model=None, **config):
+    def __init__(self, entity, project=None, model=None, create_main_page=False, **config):
         if not entity.endswith('.html'):
             entity = entity + '.html'
 
-        super(HTMLGenerator, self).__init__(entity, parent=project, folder='html')
+        super(HTMLGenerator, self).__init__(entity, parent=project, folder='html', hierarchy=main_page)
         
         self.fname = entity.split('.html')[0]
         self._instances.append(self)
         self.basecontent = config
 
-    def create_main_page(self):
+    def add_parent_page(self):
         with open(os.path.join(self.folder, self.main_page), 'w') as f:
             for each in self._instances:
                 f.write(str(self.tags.a(each.fname, href=each.fname + '.html')) + str(self.tags.br()))
 
-    def __call__(self, *dfs):
-        self._buffer.write(str(self.tags.a('go back', href=self.main_page)) + str(self.tags.br()))
+    def add_dataframe(self, *dfs):
+        if self.hierarchy:
+            self._buffer.write(str(self.tags.a('go back', href=self.main_page)) + str(self.tags.br()))
         
         for df in dfs:
             df.to_html(self._buffer)
