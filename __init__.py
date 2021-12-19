@@ -28,7 +28,6 @@ class PyTorchUtils(object):
 
     @property
     def project(self):
-        print(self.hparams)
         return self.hparams.save_path
 
     def garbage(self):
