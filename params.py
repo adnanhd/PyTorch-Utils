@@ -33,13 +33,17 @@ class HParams(object):
         ### evaluating parameters
         self.load_model = None  # All instances in the test set are evaluated.
 
+        self.update(*args, **kwargs)
+
+
+    def update(self, *args, **kwargs):
         for key, value in kwargs.items():
-            if key in self.__dict__.keys():
-                self.__setattr__(key, value)
+            #if key in self.__dict__.keys():
+            self.__setattr__(key, value)
 
         for key, value in zip(filter(lambda k: k not in kwargs.keys(), self.__dict__.keys()), args):
-            if key in self.__dict__.keys():
-                self.__setattr__(key, value)
+            #if key in self.__dict__.keys():
+            self.__setattr__(key, value)
 
     @property
     def lr(self):
@@ -71,8 +75,8 @@ class HParams(object):
         return len(self.__dict__)
 
     def __repr__(self):
-        delimiter = ",\n" + " " * 7
-        return "Config({})".format(delimiter.join("{}=\"{}\"".format(key, value.__repr__())
+        delimiter = ",\n" + " " * 8
+        return "HParams({})".format(delimiter.join("{}={}".format(key, value.__repr__())
             for key, value in self.__dict__.items() if value))
 
     @classmethod

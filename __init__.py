@@ -16,10 +16,11 @@ torch.backends.cudnn.benchmark = True
 
 
 class PyTorchUtils(object):
-    def __init__(self, experiment="first_entity", description=None, **kwargs):
+    def __init__(self, experiment="first_entity", description=None, cfg=utils.params.HParams(), **kwargs):
         self.trainer = None
         self.metrics = dict()
-        self.hparams = kwargs
+        self.hparams = cfg
+        self.hparams.update(**kwargs)
         self.generator = utils.generators.HTMLGenerator(
             project=self.project, entity=experiment, 
             main_page=True)
@@ -27,6 +28,7 @@ class PyTorchUtils(object):
 
     @property
     def project(self):
+        print(self.hparams)
         return self.hparams.save_path
 
     def garbage(self):

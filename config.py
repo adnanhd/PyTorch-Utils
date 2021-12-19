@@ -14,6 +14,6 @@ class Config:
     parser.add_argument('--load_model', type=int, default=None)
     parser.add_argument('--multi_gpu', type=bool, default=False)
     parser.add_argument('--normalize', action='store_true', help="Normalize input data")
-    parser.add_argument('--wandb', action='store_true', help='Toggle for Weights & Biases (wandb)')
+    #parser.add_argument('--wandb', action='store_true', help='Toggle for Weights & Biases (wandb)')
     parser.add_argument('--device', type=str, default='cuda', choices=['cuda', 'cpu'],
                                         help='The device to run on models, cuda is default.')
