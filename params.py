@@ -3,6 +3,7 @@ import copy, torch, argparse
 class HParams(object):
     """Hyperparameters used for training."""
     def __init__(self, *args, **kwargs):
+
         ### wandb config
         self.project = None
         self.entity = None
@@ -19,19 +20,18 @@ class HParams(object):
         self.dtype = torch.float
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
+        self.xtype = torch.float
+        self.ytype = torch.float
+        
         self.save_path = "./model"
         self.plot_path = None
         self.loss_path = None
         
-        ### fitting parameters
-        self.xtype = torch.float
-        self.ytype = torch.float
-        
-        self.save_iter = False
+        ### training parameters
+        self.save_model = False
     
         ### evaluating parameters
-        self.eval_steps = None  # All instances in the test set are evaluated.
-        self.load_iter = False
+        self.load_model = None  # All instances in the test set are evaluated.
 
         for key, value in kwargs.items():
             if key in self.__dict__.keys():
@@ -76,6 +76,6 @@ class HParams(object):
             for key, value in self.__dict__.items() if value))
 
     @classmethod
-    def from_parser(cls, args: argparse.ArgumentParser):
-        return cls(**vars(args.parse_args()))
+    def from_parser(cls, parser: argparse.ArgumentParser):
+        return cls(**vars(parser.parse_args()))
 
