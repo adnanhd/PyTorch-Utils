@@ -68,7 +68,7 @@ class SaveBestModel(Callback):
         self.best_weights = None
         self.max = this_max
         self.verbose = verbose
-        self.best = float('-inf') if this_max else flot('inf')
+        self.best = float('-inf') if this_max else float('inf')
 
     def on_epoch_end(self, trainer, epoch=None, **kwargs):
         metric_value = kwargs[self.save_best_metric]

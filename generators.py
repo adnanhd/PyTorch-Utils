@@ -135,8 +135,7 @@ class HTMLGenerator(FileGenerator):
         self.doc = self.document(title=entity.split(self.ending)[0])
         super(HTMLGenerator, self).__init__(entity, parent=project, folder='html', 
                                             hierarchy=main_page, preserve=not overwrite)
-        print(self.fname, self.ending, entity, entity.split(self.ending)[0])
-
+        
         self.basecontent = config
 
     def __del__(self):
@@ -145,9 +144,11 @@ class HTMLGenerator(FileGenerator):
     def render(self, *args, **kwargs):
         return self.doc.render(*args, **kwargs)
     
+    def add_title(self):
+        pass
+
     def add_header(self, meta = {"content": "utf-8", "http-equiv": "encoding"}):
         self.doc.head.add(self.tags.meta(**meta))
-        print(self.hierarchy)
         if self.hierarchy:
             self.doc.body.add(self.tags.a("back", href=self.main_page))
             self.add_parent_page()
@@ -156,7 +157,6 @@ class HTMLGenerator(FileGenerator):
         with open(os.path.join(self.path, self.main_page), 'w') as f:
             html_files = list(filter(lambda x: x.endswith(
                 self.ending), os.listdir(self.path)))
-            print(html_files)
             if self.main_page in html_files:
                 html_files.remove(self.main_page)
             for each in html_files:
@@ -164,15 +164,14 @@ class HTMLGenerator(FileGenerator):
                 f.write(str(self.tags.a(fname, href=fname +
                                         self.ending)) + str(self.tags.br()))
 
-    def add_dataframe(self, *dfs):
-        for df in dfs:
-            self.doc.body.add_raw_string(df.to_html())
+    def add_dataframe(self, df: pd.DataFrame):
+        self.doc.body.add_raw_string(df.to_html())
 
     def add_figure(self, fig, fname=None):
         if fname is None:
             self_fname = self.fname.split(self.ending)[0]
             fname = self_fname + fig.ending
-            path = os.path.join(self.path, fname)
+        path = os.path.join(self.path, fname)
         fig.plot(path=path)
         self.doc.body.add(self.tags.img(src=fname))
 

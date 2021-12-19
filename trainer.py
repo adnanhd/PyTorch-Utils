@@ -152,13 +152,14 @@ class Trainer:
 
             self.model.eval()
             with torch.no_grad():  # VALIDATION
-                valid_df.iloc[epoch] = self.evaluate(
-                        valid_dataset, 
-                        load_model=False, 
-                        save_metrics=False,
-                        verbose=False, 
-                        callbacks=[], 
-                        metrics=metrics).mean(axis=0)
+                if valid_dataset is not None:
+                    valid_df.iloc[epoch] = self.evaluate(
+                            valid_dataset, 
+                            load_model=False, 
+                            save_metrics=False,
+                            verbose=False, 
+                            callbacks=[], 
+                            metrics=metrics).mean(axis=0)
 
                 if verbose:
                     df = pd.DataFrame((train_df.iloc[epoch], valid_df.iloc[epoch]), 
