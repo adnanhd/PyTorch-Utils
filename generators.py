@@ -170,7 +170,7 @@ class HTMLGenerator(FileGenerator):
         self._buffer.write(str(self.tags.img(src=fname)))
 
     def add_module(self, model: torch.nn.Module):
-        self._buffer.write(str(model))
+        self._buffer.write(str(self.tags.pre(str(model))))
 
 
 class _AxisGenerator(Generator):
