@@ -1,5 +1,6 @@
 import math, os
 import datetime
+import torch
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -10,7 +11,7 @@ def makedirs(path):
     except FileExistsError:
         pass
 
-class Generator:
+class Generator(object):
     parent_dir = './'
     def __init__(self, parent=None, folder=None):
         if parent is None:
@@ -42,6 +43,9 @@ class FileGenerator(Generator):
         self._buffer = open(os.path.join(self.path, buf), 'w')
         self.hierarchy = hierarchy
     
+    def __del__(self):
+        self._buffer.close()
+
     def add_parent_page(self):
         return NotImplementedError()
 
@@ -51,10 +55,8 @@ class FileGenerator(Generator):
     def add_figure(self):
         return NotImplementedError()
 
-    def __del__(self):
-        if self.hierarchy:
-            self.add_parent_page()
-        self._buffer.close()
+    def add_module(self):
+        return NotImplementedError()
 
     def __call__(self, *args):
         for arg in args:
@@ -62,6 +64,8 @@ class FileGenerator(Generator):
                 self.add_dataframe(arg)
             elif isinstance(arg, FigureGenerator):
                 self.add_figure(arg)
+            elif isinstance(arg, torch.nn.Module):
+                self.add_module(arg)
 
 
 class WandbGenerator(Generator):
@@ -76,14 +80,12 @@ class WandbGenerator(Generator):
 
 class LatexGenerator(FileGenerator):
     main_page = 'main.tex'
-    _instances = []
+    ending = ".tex"
     def __init__(self, entity, project=None, model=None, **config):
-        if not entity.endswith('.tex'):
-            entity = entity + '.tex'
+        if not entity.endswith(self.ending):
+            entity = entity + self.ending
 
-        
-        self.fname = entity.split('.tex')[0]
-        self._instances.append(self)
+        self.fname = entity.split(self.ending)[0]
 
         super(LatexGenerator, self).__init__(entity, project=path, folder='latex')
         
@@ -100,7 +102,7 @@ class LatexGenerator(FileGenerator):
 
     def __del__(self):
         self._buffer.write(r'\end{document}')
-        super().__del__()
+        super(LatexGenerator, self).__del__()
 
     def add_parent_page(self):
         with open(os.path.join(self.folder, self.main_page), 'w') as f:
@@ -118,42 +120,57 @@ class LatexGenerator(FileGenerator):
 
 class HTMLGenerator(FileGenerator):
     main_page = 'index.html'
-    _instances = []
+    ending = ".html"
     from dominate import tags
 
-    def __init__(self, entity, project=None, model=None, create_main_page=False, overwrite=True, **config):
-        if not entity.endswith('.html'):
-            entity = entity + '.html'
+    def __init__(self, entity, project=None, model=None, create_main_page=False, overwrite=True, meta={}, **config):
+        if not entity.endswith(self.ending):
+            entity = entity + self.ending
 
         super(HTMLGenerator, self).__init__(entity, parent=project, folder='html', hierarchy=create_main_page, preserve=not overwrite)
         
-        self.fname = entity.split('.html')[0]
-        self._instances.append(self)
+        _meta = {"content":"utf-8", "http-equiv":"encoding"}
+        _meta.update(meta)
+
+        self._buffer.write("<!DOCTYPE html>")
+        self._buffer.write(str(self.tags.meta(**_meta)))
+        self.fname = entity.split(self.ending)[0]
         self.basecontent = config
 
+    def __del__(self):
+        super(HTMLGenerator, self).__del__()
+
     def add_parent_page(self):
-        with open(os.path.join(self.folder, self.main_page), 'w') as f:
-            for each in self._instances:
-                f.write(str(self.tags.a(each.fname, href=each.fname + '.html')) + str(self.tags.br()))
+        with open(os.path.join(self.path, self.main_page), 'w') as f:
+            html_files = list(filter(lambda x: x.endswith(self.ending), os.listdir(self.path)))
+            print(html_files)
+            if self.main_page in html_files:
+                html_files.remove(self.main_page)
+            for each in html_files:
+                fname = each.split(self.ending)[0]
+                f.write(str(self.tags.a(fname, href=fname + self.ending)) + str(self.tags.br()))
 
     def add_dataframe(self, *dfs):
         if self.hierarchy:
-            self._buffer.write(str(self.tags.a('go back', href=self.main_page)) + str(self.tags.br()))
+            self._buffer.write(str(self.tags.a('back', href=self.main_page)) + str(self.tags.br()))
         
         for df in dfs:
             df.to_html(self._buffer)
 
     def add_figure(self, fig, fname=None):
         if fname is None:
-            fname = self.fname + ".png"
+            fname = self.fname + fig.ending
             path = os.path.join(self.path, fname)
             i = 0
             while os.path.isfile(path):
-                fname = self.fname + f"{i}.png"
+                fname = self.fname + str(i) + fig.ending
                 path = os.path.join(self.path, fname)
                 i += 1
         fig.plot(path=path)
         self._buffer.write(str(self.tags.img(src=fname)))
+
+    def add_module(self, model: torch.nn.Module):
+        self._buffer.write(str(model))
 
 
 class _AxisGenerator(Generator):
@@ -175,6 +192,7 @@ class _AxisGenerator(Generator):
 
 
 class FigureGenerator(Generator):
+    ending = '.png'
     def __init__(self, *axes, fig=None, project=None, **kwargs):
         super(FigureGenerator, self).__init__(parent=project, folder='plot')
         
@@ -196,11 +214,6 @@ class FigureGenerator(Generator):
         self.axes[index] = axis(self.axes[index])
 
     def plot(self, fname=None, path=None, *argv, **kwargs):
-        """
-                f_none f_exist
-        p_none  show    save(s.p, f)
-        p_exist save(p) save(p, f)
-        """
         if fname is None and path is None:
             plt.show()
         else:
@@ -228,7 +241,7 @@ class FigureGenerator(Generator):
             
         def __call__(self, ax):
             # TODO: add 'x' and 'o' for train and valid
-            super().__call__(ax=ax)
+            super(self.__class__, self).__call__(ax=ax)
             ax.semilogy(self.df, 'o-')
             ax.legend(self.df.columns)
             return ax
@@ -248,7 +261,7 @@ class FigureGenerator(Generator):
 
         def __call__(self, ax):
             # TODO: add 'x' and 'o' for train and valid
-            super().__call__(ax=ax)
+            super(Histogram, self).__call__(ax=ax)
             ax.hist(self.df, bins=int(math.log2(len(self.df) ** 2)) if len(self.df) else None)
             ax.legend(self.df.columns)
             return ax
