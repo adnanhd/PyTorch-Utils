@@ -67,7 +67,7 @@ class Trainer:
         if epoch is None or isinstance(epoch, bool) and epoch:
             epoch = max(int(p.split('_')[1]) for p in os.listdir(path) if 'checkpoints' in p)
 
-        path = os.path.join(path, f'checkpoints_{load_epoch}_iter.ckpt')
+        path = os.path.join(path, f'checkpoints_{epoch}_iter.ckpt')
         
         checkpoint = torch.load(path, map_location=self.device)
         checkkeys = ('model', 'scheduler', 'optimizer', 'loss_func')
@@ -77,7 +77,7 @@ class Trainer:
                 self.__getattribute__(key).load_state_dict(checkpoint[key])
                 #del checkpoint[key]
         
-        return load_epoch#, pd.DataFrame(checkpoint, columns=checkpoint.keys(), index=range(epoch))
+        return epoch#, pd.DataFrame(checkpoint, columns=checkpoint.keys(), index=range(epoch))
     
     def load_metrics(self, label, epoch=None, path=None):
         if path is None:
@@ -241,7 +241,7 @@ class Trainer:
                     test_dataset.set_postfix(**test_df.iloc[i])
 
         if save_metrics:
-            self.save_metrics(label='test', epoch=epochs, **test_df)
+            self.save_metrics(label='test', epoch=load_model, **test_df)
 
         return test_df
 
