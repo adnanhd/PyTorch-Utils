@@ -174,10 +174,10 @@ class FlowField(Datum):
         return cls(torch.stack([torch.from_numpy(y[key]) for key in cls.keys], dim=0))
     
     def subplot(self, fig=None, axes=None, title=None, color=None, label=None):
-        if not fig:
+        if fig is None:
             fig = plt.figure()
         
-        if not axes:
+        if axes is None:
             axes = fig.subplots(self.shape[0])
         else:
             assert all(map(lambda ax: isinstance(ax, plt.Axes), axes))
