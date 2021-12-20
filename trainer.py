@@ -143,7 +143,6 @@ class Trainer:
                 self.optimizer.step()
                 
                 for metric_name, metric_func in enumerate(metrics.values()):
-                    print(metric_name)
                     loss_list[batch, metric_name] = metric_func(y_true=y_true.detach().cpu(), y_pred=y_pred.detach().cpu()).item()
                 
                 if verbose:

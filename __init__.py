@@ -53,7 +53,6 @@ class PyTorchUtils(object):
         self.trainer.optimizer = torch.optim.Adam(self.trainer.model.parameters(),
                                 lr=self.hparams.learn_rate, weight_decay=self.hparams.weight_decay)
 
-        print("bef metrics", metrics)
         self.metrics.update(metrics)
         self.generator.doc.body.add(self.generator.tags.h2("Compile"))
         self.generator(self.trainer.model, self.trainer.loss_func)
@@ -71,7 +70,6 @@ class PyTorchUtils(object):
             valid_loader = valid_dataset.dataloader(
                 batch_size=1, train=False,
                 num_workers=self.hparams.num_workers)
-        print("metrics", self.metrics)
         df = self.trainer.fit(epochs=self.hparams.num_epochs,
                     train_dataset=train_loader,
                     valid_dataset=valid_loader,
