@@ -54,7 +54,7 @@ class PyTorchUtils(object):
                                 lr=self.hparams.learn_rate, weight_decay=self.hparams.weight_decay)
 
         self.metrics.update(metrics)
-        self.generator.doc.body.add(self.generator.tags.h2("HParams"))
+        self.generator.doc.body.add(self.generator.tags.h2("Hyper Parameters"))
         self.generator.doc.body.add(self.generotor.tags.pre(str(self.hparams)))
         self.generator.doc.body.add(self.generator.tags.h2("Compile"))
         self.generator(self.trainer.model, self.trainer.loss_func)
