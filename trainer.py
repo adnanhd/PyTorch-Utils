@@ -131,7 +131,7 @@ class Trainer:
             else:
                 progress_bar = train_dataset
             
-            for i, (features, y_true) in enumerate(progress_bar):
+            for batch, (features, y_true) in enumerate(progress_bar):
                 y_true = y_true.to(device=self.device, dtype=self.ytype)
                 features = features.to(device=self.device, dtype=self.xtype)
 
@@ -142,11 +142,12 @@ class Trainer:
                 loss.backward()
                 self.optimizer.step()
                 
-                for m, metric in enumerate(metrics.values()):
-                    loss_list[i, m] = metric(y_true=y_true.detach().cpu(), y_pred=y_pred.detach().cpu()).item()
+                for metric_name, metric_func in enumerate(metrics.values()):
+                    print(metric_name)
+                    loss_list[batch, metric_name] = metric_func(y_true=y_true.detach().cpu(), y_pred=y_pred.detach().cpu()).item()
                 
                 if verbose:
-                    progress_bar.set_postfix(**dict(zip(train_df.columns, loss_list[i].cpu().tolist())))
+                    progress_bar.set_postfix(**dict(zip(train_df.columns, loss_list[batch].cpu().tolist())))
             
             train_df.iloc[epoch] = loss_list.mean(dim=0).cpu()
 
