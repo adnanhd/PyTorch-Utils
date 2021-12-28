@@ -98,7 +98,7 @@ class Trainer:
 
     def fit(self, epochs, train_dataset, 
             valid_dataset=None, 
-            load_model=None,
+            load_model=False,
             save_model=False, # save model and losses
             verbose=True, # print and save logs
             callbacks=[], 
@@ -109,7 +109,7 @@ class Trainer:
         train_df = pd.DataFrame(columns=metrics.keys(), index=range(epochs))
         valid_df = pd.DataFrame(columns=metrics.keys(), index=range(epochs))
 
-        if load_model is not None:
+        if load_model:
             load_model = self.load_checkpoint(epoch=load_model)
             train_df.update(self.load_metrics(label='train', epoch=load_model, path=None))
             valid_df.update(self.load_metrics(label='valid', epoch=load_model, path=None))

@@ -91,6 +91,10 @@ class Dataset(torch.utils.data.dataset.Dataset):
                                            batch_size=batch_size,
                                            num_workers=num_workers)
 
+    def __repr__(self):
+        return f"<Dataset: {self.__len__()} samples>(features: {self.features.shape}, labels: {self.labels.shape})"
+
+"""
     @classmethod
     def from_preloaded(cls, feature_class, label_class, 
             transform=None, feature_func=None, label_func=None, 
@@ -123,6 +127,6 @@ class Dataset(torch.utils.data.dataset.Dataset):
                 torch.save({'features': features, 'labels': labels}, cache_filepath)
 
         return cls(features, labels, transform, feature_func, label_func)
-
+"""
 
 

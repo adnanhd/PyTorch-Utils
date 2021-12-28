@@ -15,8 +15,8 @@ epsilon = 1e-5
 torch.backends.cudnn.benchmark = True
 
 
-class PyTorchUtils(object):
-    def __init__(self, experiment="first_entity", description=None, cfg=utils.params.HParams(), **kwargs):
+class Pipeline(object):
+    def __init__(self, model_name=None, experiment="first_entity", description=None, cfg=utils.params.HParams(), **kwargs):
         self.trainer = None
         self.metrics = dict()
         self.hparams = cfg
