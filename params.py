@@ -1,7 +1,7 @@
 import copy, torch, argparse
 
 class HParams(object):
-    parser = ArgumentParser()
+    parser = argparse.ArgumentParser()
     parser.add_argument('--batch_size', type=int, help="Batch Size in Training", default=16)
     parser.add_argument('--num_workers', type=int, default=0)
     parser.add_argument('--num_epochs', type=int, default=100, help="Number of Epochs")
@@ -9,7 +9,7 @@ class HParams(object):
     parser.add_argument('--lr_decay', type=float, default=0.96, help="Learning Rate Decay")
     parser.add_argument('--weight_decay', type=float, default=0.0000, help="Weight Decay")
     parser.add_argument('--mode', type=str, default='train', choices=['train', 'test', 'both'])
-    parser.add_argument('--save_path', type=str, default='checkpoints')
+    parser.add_argument('--model_path', type=str, default='checkpoints')
     parser.add_argument('--save_model', type=bool, default=False)
     parser.add_argument('--load_model', type=int, default=False)
     parser.add_argument('--multi_gpu', type=bool, default=False)
@@ -32,8 +32,9 @@ class HParams(object):
         self.save_model = False
         self.load_model = False
         self.best_model = False
-        self.model_path = "./checkpoints"
-        
+        self.model_path = "checkpoints"
+        self.model_name = 'network'
+
         self.dtype = torch.float
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -90,6 +91,11 @@ class HParams(object):
     def wandb(self):
         return {key: copy.deepcopy(self.__getattribute__(key)) 
                 for key in ('epochs', 'batch_size', 'lr', 'device')}
+
+    @property
+    def trainer(self):
+        return {key: copy.deepcopy(self.__getattribute__(key))
+                for key in ('save_path', 'device', 'xtype', 'ytype', 'model_name')}
 
     @property
     def fit(self):

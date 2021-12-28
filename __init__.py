@@ -28,7 +28,7 @@ class Pipeline(object):
 
     @property
     def project(self):
-        return self.hparams.save_path
+        return self.hparams.model_path
 
     def garbage(self):
         if self.hparams.normalize:
@@ -40,22 +40,22 @@ class Pipeline(object):
             dataset.transform = transforms.Compose(
                 [transforms.Normalize(mean=mean, std=std)])
 
-    def compile(self, model, loss, metrics):
+    def compile(self, model, loss, metrics={}):
         device = torch.device(
             self.hparams.device if torch.cuda.is_available() else 'cpu')
 
-        self.trainer = utils.trainer.Trainer(model=model, 
-                            save_path=self.hparams.save_path,
-                               device=device, xtype=torch.float, ytype=torch.float)
-
-        self.trainer.loss_func = loss
-
-        self.trainer.optimizer = torch.optim.Adam(self.trainer.model.parameters(),
-                                lr=self.hparams.learn_rate, weight_decay=self.hparams.weight_decay)
+        self.trainer = utils.trainer.Trainer(
+                model=model, 
+                loss=loss, 
+                optim=torch.optim.Adam(
+                    model.parameters(), 
+                    lr=self.hparams.learn_rate, 
+                    weight_decay=self.params.weight_decay),
+                **self.hparams.trainer)
 
         self.metrics.update(metrics)
         self.generator.doc.body.add(self.generator.tags.h2("Hyper Parameters"))
-        self.generator.doc.body.add(self.generotor.tags.pre(str(self.hparams)))
+        self.generator.doc.body.add(self.generator.tags.pre(str(self.hparams)))
         self.generator.doc.body.add(self.generator.tags.h2("Compile"))
         self.generator(self.trainer.model, self.trainer.loss_func)
 

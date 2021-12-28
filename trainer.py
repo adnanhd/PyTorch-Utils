@@ -10,11 +10,12 @@ def makedirs(path, verbose=False):
         pass
 
 class Trainer:
-    def __init__(self, model, loss=None, optim=None, sched=None, loss_path=None,
-            save_path=None, device=None, xtype=None, ytype=None, *args, **kwargs):
+    def __init__(self,  model, loss=None, optim=None, sched=None, loss_path=None,
+            model_path=None, device=None, xtype=None, ytype=None, model_name=None,
+            *args, **kwargs):
         
-        self.save_path=save_path if save_path else 'model'
-        self.loss_path=loss_path if loss_path else os.path.join(self.save_path, 'loss')
+        self.model_path=model_path if model_path else 'model'
+        self.loss_path=loss_path if loss_path else os.path.join(self.model_path, 'loss')
         
         if device:
             self.device = device
@@ -31,12 +32,14 @@ class Trainer:
 
         self._stop_iter = True
 
+        self.model_name = model_name if model_name is not None else 'checkpoints'
+
     # if loss is not then model saves the best results only
     def save_checkpoint(self, epoch=None, path=None, best_metric=None):
-        makedirs(self.save_path)
+        makedirs(self.model_path)
         if path is None or os.path.isdir(path):
-            path = os.path.join(self.save_path if path is None else path, 
-                                'checkpoints_{}_iter.ckpt'.format(epoch))
+            path = os.path.join(self.model_path if path is None else path, 
+                                f'{self.model_name}_{epochs}_iter.ckpt')
             
         if best_metric is not None and os.path.isdir(path) and \
                 best_metric < torch.load(path).get('best_metric', float('Inf')) or best_metric is None:
@@ -54,20 +57,20 @@ class Trainer:
         makedirs(self.loss_path)
         if path is None or os.path.isdir(path):
             path = os.path.join(self.loss_path if path is None else path, 
-                                '{}_loss_{}_iter.ckpt'.format(label, epoch))
+                                f'{self.model_name}_{label}_loss_{epoch}_iter.ckpt')
         torch.save(metrics, path)
 
     def load_checkpoint(self, epoch=None, path=None):
         if path is None:
-            path = self.save_path
+            path = self.model_path
 
         if not os.path.isdir(path):
             path = os.path.split(path)[0]
 
         if epoch is None or isinstance(epoch, bool) and epoch:
-            epoch = max(int(p.split('_')[1]) for p in os.listdir(path) if 'checkpoints' in p)
+            epoch = max(int(p.split('_')[1]) for p in os.listdir(path) if self.model_name in p)
 
-        path = os.path.join(path, f'checkpoints_{epoch}_iter.ckpt')
+        path = os.path.join(path, f'{self.model_name}_{epoch}_iter.ckpt')
         
         checkpoint = torch.load(path, map_location=self.device)
         checkkeys = ('model', 'scheduler', 'optimizer', 'loss_func')
@@ -87,9 +90,9 @@ class Trainer:
             path = os.path.split(path)[0]
 
         if not epoch:
-            epoch = max(int(p.split('_')[2]) for p in os.listdir(path) if 'loss' in p)
+            epoch = max(int(p.split('_')[2]) for p in os.listdir(path) if '_loss_' in p)
         
-        path = os.path.join(path, f'{label}_loss_{epoch}_iter.ckpt')
+        path = os.path.join(path, f'{self.model_name}_{label}_loss_{epoch}_iter.ckpt')
 
         return torch.load(path, map_location=self.device)
 
