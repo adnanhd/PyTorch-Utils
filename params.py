@@ -72,12 +72,8 @@ class HParams(object):
         return self.__dict__
 
     @property
-    def model_name(self):
-        return self.project
-
-    @property
     def experiment(self):
-        return self.project + "_" + self.entity
+        return f'{self.project}_{self.model_name}_{self.entity}'
 
     @property
     def lr(self):
@@ -95,7 +91,7 @@ class HParams(object):
     @property
     def trainer(self):
         return {key: copy.deepcopy(self.__getattribute__(key))
-                for key in ('save_path', 'device', 'xtype', 'ytype', 'model_name')}
+                for key in ('model_path', 'device', 'xtype', 'ytype', 'model_name')}
 
     @property
     def fit(self):

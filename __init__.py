@@ -50,7 +50,7 @@ class Pipeline(object):
                 optim=torch.optim.Adam(
                     model.parameters(), 
                     lr=self.hparams.learn_rate, 
-                    weight_decay=self.params.weight_decay),
+                    weight_decay=self.hparams.weight_decay),
                 **self.hparams.trainer)
 
         self.metrics.update(metrics)
@@ -75,11 +75,9 @@ class Pipeline(object):
         df = self.trainer.fit(epochs=self.hparams.num_epochs,
                     train_dataset=train_loader,
                     valid_dataset=valid_loader,
-                    load_model=self.hparams.load_model,
-                    save_model=self.hparams.save_model,  # save model and losses
                     callbacks=callbacks,
                     metrics=self.metrics,
-                    verbose=True, **kwargs)  # print and save logs
+                    **self.hparams.fit, **kwargs)  # print and save logs
 
         fig[0] = utils.generators.FigureGenerator.Semilogy(df)
         self.generator.doc.body.add(self.generator.tags.h2("Training"))
@@ -88,7 +86,7 @@ class Pipeline(object):
         self.generator(df)
         return df
 
-    def test(self, test_dataset, callbacks=[]):
+    def test(self, test_dataset, callbacks=[], **kwargs):
         fig = utils.generators.FigureGenerator(1, project=self.project)
 
         test_loader = test_dataset.dataloader(
@@ -97,10 +95,9 @@ class Pipeline(object):
 
         df = self.trainer.evaluate(
                 test_dataset=test_loader,
-                load_model=self.hparams.save_model,
                 callbacks=callbacks,
                 metrics=self.metrics,
-                verbose=True)  # print and save logs
+                **self.hparams.evaluate, **kwargs)  # print and save logs
 
         fig[0] = utils.generators.FigureGenerator.Histogram(df)
         self.generator.doc.body.add(self.generator.tags.h2("Testing"))

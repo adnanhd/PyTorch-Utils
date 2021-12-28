@@ -39,7 +39,7 @@ class Trainer:
         makedirs(self.model_path)
         if path is None or os.path.isdir(path):
             path = os.path.join(self.model_path if path is None else path, 
-                                f'{self.model_name}_{epochs}_iter.ckpt')
+                                f'{self.model_name}_{epoch}_iter.ckpt')
             
         if best_metric is not None and os.path.isdir(path) and \
                 best_metric < torch.load(path).get('best_metric', float('Inf')) or best_metric is None:
