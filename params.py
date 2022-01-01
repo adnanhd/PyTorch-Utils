@@ -2,6 +2,7 @@ import copy, torch, argparse
 
 class HParams(object):
     parser = argparse.ArgumentParser()
+    parser.add_argument('-f', type=str, default='')
     parser.add_argument('--batch_size', type=int, help="Batch Size in Training", default=16)
     parser.add_argument('--num_workers', type=int, default=0)
     parser.add_argument('--num_epochs', type=int, default=100, help="Number of Epochs")

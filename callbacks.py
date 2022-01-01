@@ -18,7 +18,7 @@ class Callback:
 
 class EarlyStopping(Callback):
     """Early stops the training if validation loss doesn't improve after a given patience."""
-    def __init__(self, patience=7, verbose=False, delta=0, trace_func=print):
+    def __init__(self, patience=7, verbose=False, delta=0, trace_func=print, save_model=True):
         """
         Args:
             patience (int): How long to wait after last time validation loss improved.
@@ -37,6 +37,7 @@ class EarlyStopping(Callback):
         self.counter = 0
         self.best_score = None
         self.early_stop = False
+        self.save_model= save_model
         self.val_loss = np.Inf
         self.delta = delta
         self.trace_func = trace_func
@@ -53,7 +54,8 @@ class EarlyStopping(Callback):
             if self.counter >= self.patience:
                 self.early_stop = True
                 trainer.stop_iter(restart=False)
-                trainer.save_checkpoint(epoch=epoch)
+                if self.save_model: 
+                    trainer.save_checkpoint(epoch=epoch)
         else:
             self.best_score = score
             self.counter = 0

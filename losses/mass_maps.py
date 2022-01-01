@@ -67,9 +67,11 @@ def momentum_conservation_calculate(rho, u, v, p):
     f1 = rho_e * u_e * u_e + p_e #formuldeki ilk parantez
     f2 = rho_w * u_w * u_w + p_w #2.parantez
     f3 = rho_n * u_n * v_n  
-    f4 = rho_s * u_s * v_s 
+    f4 = rho_s * u_s * v_s
     
     x_momentum = (f1 - f2) + (f3 - f4) 
+    
+    ## Y MOMENTUM =  [ rho_n * (u_n)^2 + P_n ] - [ rho_s * (u_s)^2 + P_s ]  + rho_e * u_e * v_e - rho_w * u_w * v_w
     
     f1 = rho_n * v_n*v_n + p_n 
     f2 = rho_s * v_s*v_s + p_s 
@@ -78,4 +80,4 @@ def momentum_conservation_calculate(rho, u, v, p):
     
     y_momentum = (f1 - f2) + (f3 - f4) 
     
-    return x_momentum,y_momentum
+    return x_momentum + y_momentum

@@ -43,14 +43,14 @@ def M_minus(M):
 	return M_lt + M_gt	
 
 
-def M_R(M):
+def M_R(M):  # Right side
 	M_plus_i = M_plus(M)
 	M_minus_i_plus_1 = M_minus(shift_L(M))
 
 	return M_plus_i + M_minus_i_plus_1
 
 
-def M_L(M):
+def M_L(M): # left side
 	M_plus_i_minus_1 = M_plus(shift_R(M))
 	M_minus_i = M_minus(M)
 
