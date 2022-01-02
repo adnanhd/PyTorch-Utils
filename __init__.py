@@ -42,6 +42,7 @@ class Pipeline(object):
             model_path = self.generator.parent
 
         hparam = utils.params.HParams(model_path=model_path, **kwargs)
+        print(hparam, self.tparams)
         self.trainer = utils.trainer.Trainer(
                 model=model, 
                 loss=loss, 

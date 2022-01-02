@@ -17,7 +17,7 @@ class Trainer:
         self.model_path=model_path if model_path else 'checkpoints'
         self.loss_path=loss_path if loss_path else os.path.join(self.model_path, 'loss')
         
-        if device:
+        if device is not None:
             self.device = device
         else:
             self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
