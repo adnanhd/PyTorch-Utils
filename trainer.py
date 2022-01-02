@@ -14,7 +14,7 @@ class Trainer:
             model_path=None, device=None, xtype=None, ytype=None, model_name=None,
             *args, **kwargs):
         
-        self.model_path=model_path if model_path else 'model'
+        self.model_path=model_path if model_path else 'checkpoints'
         self.loss_path=loss_path if loss_path else os.path.join(self.model_path, 'loss')
         
         if device:
@@ -32,7 +32,7 @@ class Trainer:
 
         self._stop_iter = True
 
-        self.model_name = model_name if model_name is not None else 'checkpoints'
+        self.model_name = model_name if model_name is not None else 'network'
 
     # if loss is not then model saves the best results only
     def save_checkpoint(self, epoch=None, path=None, best_metric=None):
@@ -105,7 +105,8 @@ class Trainer:
             save_model=False, # save model and losses
             verbose=True, # print and save logs
             callbacks=[], 
-            metrics={}):
+            metrics={},
+            **kwargs):
         
         self._stop_iter = False
         metrics.setdefault('loss', loss_to_metric(self.loss_func))
@@ -190,7 +191,7 @@ class Trainer:
               **train_df.iloc[epoch].add_prefix('train_'),
               **valid_df.iloc[epoch].add_prefix('valid_')
             )
-            
+        
         if save_model:
             self.save_checkpoint(epoch=epochs)
             self.save_metrics(label='train', epoch=epochs, **train_df)
@@ -202,7 +203,9 @@ class Trainer:
             load_model=False,
             save_metrics=False, # save model and losses
             verbose=True, # print and save logs
-            callbacks=[], metrics={}):
+            callbacks=[], 
+            metrics={},
+            **kwargs):
         metrics.setdefault('loss', loss_to_metric(self.loss_func))
         test_df = pd.DataFrame(columns=metrics.keys(), index=range(len(test_dataset)))
 

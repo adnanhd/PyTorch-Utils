@@ -1,121 +1,76 @@
-import copy, torch, argparse
+import torch
+from typing import Optional, Union
+from argparse import ArgumentParser
+from dataclasses import dataclass, field
 
+
+@dataclass
 class HParams(object):
-    parser = argparse.ArgumentParser()
-    parser.add_argument('-f', type=str, default='')
-    parser.add_argument('--batch_size', type=int, help="Batch Size in Training", default=16)
-    parser.add_argument('--num_workers', type=int, default=0)
-    parser.add_argument('--num_epochs', type=int, default=100, help="Number of Epochs")
-    parser.add_argument('--learn_rate', type=float, default=1e-4, help="Learning Rate")
-    parser.add_argument('--lr_decay', type=float, default=0.96, help="Learning Rate Decay")
-    parser.add_argument('--weight_decay', type=float, default=0.0000, help="Weight Decay")
-    parser.add_argument('--mode', type=str, default='train', choices=['train', 'test', 'both'])
-    parser.add_argument('--model_path', type=str, default='checkpoints')
-    parser.add_argument('--save_model', type=bool, default=False)
-    parser.add_argument('--load_model', type=int, default=False)
-    parser.add_argument('--multi_gpu', type=bool, default=False)
-    parser.add_argument('--normalize', action='store_true', help="Normalize input data")
-    #parser.add_argument('--wandb', action='store_true', help='Toggle for Weights & Biases (wandb)')
-    parser.add_argument('--device', type=str, default='cuda', choices=['cuda', 'cpu'],
-                                        help='The device to run on models, cuda is default.')
-    
-    """Hyperparameters used for training."""
-    def __init__(self, parser=None, *args, **kwargs):
 
-        if parser is None:
-            parser = self.parser
+    model_name: str = field(
+        metadata={"help": "model's name to name the containing model's weights"}
+    )
 
-        ### wandb config
-        self.project = None
-        self.entity = None
-        
-        ## Trainer params
-        self.save_model = False
-        self.load_model = False
-        self.best_model = False
-        self.model_path = "checkpoints"
-        self.model_name = 'network'
+    model_path: Optional[str] = field(
+        default="checkpoints",
+        metadata={
+            "help": "model's path to save and load the containing model's weights"}
+    )
 
-        self.dtype = torch.float
-        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    device: torch.device = field(
+        default=torch.device('cuda' if torch.cuda.is_available() else 'cpu'),
+        metadata={"help": "medium device to host the model"}
+    )
 
-        self.xtype = torch.float
-        self.ytype = torch.float
-        
-        self.verbose = True
-        
-        ### training parameters
-        self.num_epochs = 100
-        self.batch_size = 16
-        self.learn_rate = 1e-4
-        self.lr_decay = 0.96
-        self.weight_decay = 0.0000
-    
-        ### evaluating parameters
-        self.load_model = None  # All instances in the test set are evaluated.
-        self.save_metrics = False # save metrics
-        
-        self.update(**vars(parser.parse_args()))
-        self.update(*args, **kwargs)
+    xtype: torch.dtype = field(
+        default=torch.float, metadata={"help": "dtpye of model's inputs"}
+    )
+
+    ytype: torch.dtype = field(
+        default=torch.float, metadata={"help": "dtpye of model's outputs"}
+    )
 
 
-    def update(self, *args, **kwargs):
-        for key, value in kwargs.items():
-            #if key in self.__dict__.keys():
-            self.__setattr__(key, value)
+@dataclass
+class TrainerArguments:
 
-        for key, value in zip(filter(lambda k: k not in kwargs.keys(), self.__dict__.keys()), args):
-            #if key in self.__dict__.keys():
-            self.__setattr__(key, value)
+    experiment: str = field(
+        metadata={"help": "the test condition's name to discriminate from others"}
+    )
 
-    @property
-    def dict(self):
-        return self.__dict__
+    verbose: bool = field(
+        default=True, metadata={'help': "prints metrics during training and testing if is set"}
+    )
 
-    @property
-    def experiment(self):
-        return f'{self.project}_{self.model_name}_{self.entity}'
+    # training parameters
+    num_epochs: int = field(
+        default=100, metadata={'help': "number of epochs to use for training"}
+    )
 
-    @property
-    def lr(self):
-        return self.learn_rate
+    batch_size: int = field(
+        default=16, metadata={'help': "batch size to pack dataset used in training"}
+    )
 
-    @property
-    def epochs(self):
-        return self.num_epochs
-    
-    @property
-    def wandb(self):
-        return {key: copy.deepcopy(self.__getattribute__(key)) 
-                for key in ('epochs', 'batch_size', 'lr', 'device')}
+    learn_rate: int = field(
+        default=1e-4, metadata={'help': "learning rate of the model used in training"}
+    )
 
-    @property
-    def trainer(self):
-        return {key: copy.deepcopy(self.__getattribute__(key))
-                for key in ('model_path', 'device', 'xtype', 'ytype', 'model_name')}
+    lr_decay: Optional[int] = field(
+        default=0.96, metadata={'help': "learning rate decay"}
+    )
 
-    @property
-    def fit(self):
-        return {key: copy.deepcopy(self.__getattribute__(key)) 
-                for key in ('load_model', 'save_model', 'verbose')}
+    weight_decay: Optional[int] = field(
+        default=0.0000, metadata={'help': "weight decay"}
+    )
 
-    @property
-    def evaluate(self):
-        return {key: copy.deepcopy(self.__getattribute__(key)) 
-                for key in ('load_model', 'save_metrics', 'verbose')}
+    save_metrics: bool = field(
+        default=True, metadata={"help": "stores calculated metrics if is set"}
+    )
 
-    def __getitem__(self, index):
-        return self.__getattribute__(index)
+    save_model: bool = field(
+        default=True, metadata={"help": "saves the model to the store path at the end of testing"}
+    )
 
-    def __len__(self):
-        return len(self.__dict__)
-
-    def __repr__(self):
-        delimiter = ",\n" + " " * 8
-        return "HParams({})".format(delimiter.join("{}={}".format(key, value.__repr__())
-            for key, value in self.__dict__.items() if value))
-
-    @classmethod
-    def from_parser(cls, parser: argparse.ArgumentParser):
-        return cls(**vars(parser.parse_args()))
-
+    load_model: Union[str, bool] = field(
+        default=False, metadata={"help": "path to load model for testing"}
+    )
