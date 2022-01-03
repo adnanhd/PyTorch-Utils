@@ -39,10 +39,10 @@ class Trainer:
         makedirs(self.model_path)
         if path is None or os.path.isdir(path):
             path = os.path.join(self.model_path if path is None else path, 
-                                f'{self.model_name}_{epoch}_iter.ckpt')
+                                f'{self.model_name}.ckpt')
             
-        if best_metric is not None and os.path.isdir(path) and \
-                best_metric < torch.load(path).get('best_metric', float('Inf')) or best_metric is None:
+        if best_metric is None or os.path.isdir(path) and \
+                best_metric < torch.load(path).get('best_metric', float('Inf')):
             state = {
                'model': self.model.state_dict() if self.model else None,
                'optimizer': self.optimizer.state_dict() if self.optimizer else None,
@@ -70,7 +70,7 @@ class Trainer:
         if epoch is None or isinstance(epoch, bool) and epoch:
             epoch = max(int(p.split('_')[1]) for p in os.listdir(path) if self.model_name in p)
 
-        path = os.path.join(path, f'{self.model_name}_{epoch}_iter.ckpt')
+        path = os.path.join(path, f'{self.model_name}.ckpt')
         
         checkpoint = torch.load(path, map_location=self.device)
         checkkeys = ('model', 'scheduler', 'optimizer', 'loss_func')
