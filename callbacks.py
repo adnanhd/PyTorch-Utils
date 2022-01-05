@@ -54,26 +54,24 @@ class EarlyStopping(Callback):
             if self.counter >= self.patience:
                 self.early_stop = True
                 trainer.stop_iter(restart=False)
-                if self.save_model: 
-                    trainer.save_checkpoint(epoch=epoch)
         else:
             self.best_score = score
             self.counter = 0
 
         return self.early_stop
 
-
+from .trainer import Trainer
 class SaveBestModel(Callback):
     """Early stops the training if validation loss doesn't improve after a given patience."""
-    def __init__(self, save_best_metric='valid_loss', verbose=False, this_max=False):
-        self.save_best_metric = save_best_metric
+    def __init__(self, monitor='valid_loss', verbose=False, this_max=False):
+        self.monitor = monitor
         self.best_weights = None
         self.max = this_max
         self.verbose = verbose
         self.best = float('-inf') if this_max else float('inf')
 
     def on_epoch_end(self, trainer, epoch=None, **kwargs):
-        metric_value = kwargs[self.save_best_metric]
+        metric_value = kwargs[self.monitor]
 
         if self.max and metric_value > self.best or metric_value < self.best:
             self.best = metric_value
@@ -81,6 +79,7 @@ class SaveBestModel(Callback):
             if self.verbose: 
                 print("best model is saved...")
 
-    def on_train_end(self, trainer, **kwargs):
+    def on_train_end(self, trainer: Trainer, **kwargs):
         if self.best_weights is not None:
-            self.model.save_state_dict(self.best_weights)
+            trainer.model.save_state_dict(self.best_weights)
+            trainer.save_checkpoint(best_metric=self.monitor)
