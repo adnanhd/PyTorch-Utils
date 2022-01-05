@@ -7,7 +7,8 @@ from .callbacks import (
     CallbackHandler,
     CallbackMethodNotImplementedError,
     TrainerCallback,
-    StopTrainingError,
+    
+    TrainingError,
 )
 
 from typing import List, Dict, Any, Mapping, Optional, Union, Callable, Tuple, Iterable
@@ -24,7 +25,7 @@ class Trainer:
     def __init__(
         self,
         model: torch.nn.Module,
-        optim: torch.optim.Optimizer,
+        optim: torch.optim.Optimizer,  
         loss: Union[Callable, torch.nn.modules.loss._Loss],
         sched: Optional[torch.optim.lr_scheduler._LRScheduler] = None,
         loss_path: Optional[str] = None,  # todo: remove
@@ -36,7 +37,7 @@ class Trainer:
         *args,
         **kwargs,
     ):
-
+        
         self.model_path = model_path
         self.model_name = model_name
 
