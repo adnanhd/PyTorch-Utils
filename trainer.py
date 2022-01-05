@@ -1,7 +1,19 @@
 import pandas as pd
-import os, time, torch, math
+import os, time
+import torch, math
 from .metrics import loss_to_metric
-from tqdm import tqdm, trange
+from tqdm import tqdm, trange, utils
+from .callbacks import (
+    CallbackHandler,
+    CallbackMethodNotImplementedError,
+    TrainerCallback,
+    StopTrainingError,
+)
+
+from .metrics import MetricHandler
+
+from typing import List, Dict, Any, Mapping, Optional, Union, Callable, Tuple, Iterable
+
 
 def makedirs(path, verbose=False):
     try:
@@ -9,55 +21,72 @@ def makedirs(path, verbose=False):
     except FileExistsError:
         pass
 
+
 class Trainer:
-    def __init__(self,  model, loss=None, optim=None, sched=None, loss_path=None,
-            model_path=None, device=None, xtype=None, ytype=None, model_name=None,
-            *args, **kwargs):
-        
-        self.model_path=model_path if model_path else 'checkpoints'
-        self.loss_path=loss_path if loss_path else os.path.join(self.model_path, 'loss')
-        
+    def __init__(
+        self,
+        model: torch.nn.Module,
+        optim: torch.optim.Optimizer,
+        loss: Union[Callable, torch.nn.module.loss._Loss],
+        sched: Optional[torch.optim.lr_scheduler._LRScheduler] = None,
+        loss_path: Optional[str] = None,  # todo: remove
+        model_name: str = "model",
+        model_path: Optional[str] = "./checkpoints/",
+        device=None,  # todo: remove
+        xtype: Union[torch.dtype, type] = torch.float32,
+        ytype: Union[torch.dtype, type] = torch.float32,
+        *args,
+        **kwargs,
+    ):
+
+        self.model_path = model_path
+        self.model_name = model_name
+
+        self.loss_path = (
+            loss_path if loss_path else os.path.join(self.model_path, "loss")
+        )
         if device is not None:
             self.device = device
         else:
-            self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+            self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-        self.xtype = xtype if xtype else torch.float
-        self.ytype = ytype if ytype else torch.float
-        
+        self.xtype = xtype
+        self.ytype = ytype
+
         self.model = model.to(device=self.device, dtype=self.xtype)
-        self.loss_func = loss
+        self.criterion = loss
         self.optimizer = optim
         self.scheduler = sched
-
-        self._stop_iter = True
-
-        self.model_name = model_name if model_name is not None else 'network'
 
     # if loss is not then model saves the best results only
     def save_checkpoint(self, epoch=None, path=None, best_metric=None):
         makedirs(self.model_path)
         if path is None or os.path.isdir(path):
-            path = os.path.join(self.model_path if path is None else path, 
-                                f'{self.model_name}.ckpt')
-            
-        if best_metric is None or os.path.isdir(path) and \
-                best_metric < torch.load(path).get('best_metric', float('Inf')):
+            path = os.path.join(
+                self.model_path if path is None else path, f"{self.model_name}.ckpt"
+            )
+
+        if (
+            best_metric is None
+            or os.path.isdir(path)
+            and best_metric < torch.load(path).get("best_metric", float("Inf"))
+        ):
             state = {
-               'model': self.model.state_dict() if self.model else None,
-               'optimizer': self.optimizer.state_dict() if self.optimizer else None,
-               'scheduler': self.scheduler.state_dict() if self.scheduler else None,
-               'loss_func': self.loss_func.state_dict() if self.loss_func else None,
-               'best_metric': best_metric,
+                "model": self.model.state_dict() if self.model else None,
+                "optimizer": self.optimizer.state_dict() if self.optimizer else None,
+                "scheduler": self.scheduler.state_dict() if self.scheduler else None,
+                "criterion": self.criterion.state_dict() if self.criterion else None,
+                "best_metric": best_metric,
             }
 
             torch.save(state, path)
 
     def save_metrics(self, label, epoch, path=None, **metrics):
-        makedirs(self.loss_path)
         if path is None or os.path.isdir(path):
-            path = os.path.join(self.loss_path if path is None else path, 
-                                f'{self.model_name}_{label}_loss_{epoch}_iter.ckpt')
+            path = os.path.join(
+                self.loss_path if path is None else path,
+                f"{self.model_name}_{label}_loss_{epoch}_iter.ckpt",
+            )
         torch.save(metrics, path)
 
     def load_checkpoint(self, epoch=None, path=None):
@@ -68,20 +97,22 @@ class Trainer:
             path = os.path.split(path)[0]
 
         if epoch is None or isinstance(epoch, bool) and epoch:
-            epoch = max(int(p.split('_')[1]) for p in os.listdir(path) if self.model_name in p)
+            epoch = max(
+                int(p.split("_")[1]) for p in os.listdir(path) if self.model_name in p
+            )
 
-        path = os.path.join(path, f'{self.model_name}.ckpt')
-        
+        path = os.path.join(path, f"{self.model_name}.ckpt")
+
         checkpoint = torch.load(path, map_location=self.device)
-        checkkeys = ('model', 'scheduler', 'optimizer', 'loss_func')
+        checkkeys = ("model", "scheduler", "optimizer", "criterion")
 
         for key in checkkeys:
             if self.__getattribute__(key) and checkpoint[key]:
                 self.__getattribute__(key).load_state_dict(checkpoint[key])
-                #del checkpoint[key]
-        
-        return epoch#, pd.DataFrame(checkpoint, columns=checkpoint.keys(), index=range(epoch))
-    
+                # del checkpoint[key]
+
+        return epoch  # , pd.DataFrame(checkpoint, columns=checkpoint.keys(), index=range(epoch))
+
     def load_metrics(self, label, epoch=None, path=None):
         if path is None:
             path = self.loss_path
@@ -90,167 +121,271 @@ class Trainer:
             path = os.path.split(path)[0]
 
         if not epoch:
-            epoch = max(int(p.split('_')[2]) for p in os.listdir(path) if '_loss_' in p)
-        
-        path = os.path.join(path, f'{self.model_name}_{label}_loss_{epoch}_iter.ckpt')
+            epoch = max(int(p.split("_")[2]) for p in os.listdir(path) if "_loss_" in p)
+
+        path = os.path.join(path, f"{self.model_name}_{label}_loss_{epoch}_iter.ckpt")
 
         return torch.load(path, map_location=self.device)
 
-    def stop_iter(self, restart=False):
-        self._stop_iter = not restart
+    @staticmethod
+    def create_dataloader(
+        dataset: torch.utils.data.Dataset,
+        train_mode: bool = True,
+        batch_size: Optional[int] = None,
+        **kwargs,
+    ) -> utils.data.DataLoader:
+        assert isinstance(dataset, torch.utils.data.Dataset)
+        default_dataloader_args = dict(
+            {
+                "dataset": dataset,
+                "shuffle": train_mode,
+                "pin_memory": True if torch.cuda.is_available() else False,
+                "batch_size": batch_size if train_mode else dataset.__len__(),
+                "num_workers": max(
+                    os.cpu_count() // torch.cuda.device_count()
+                    if torch.cuda.is_available()
+                    else os.cpu_count(),
+                    1,
+                ),
+            }
+        )
 
-    def fit(self, epochs, train_dataset, 
-            valid_dataset=None, 
-            load_model=False,
-            save_model=False, # save model and losses
-            verbose=True, # print and save logs
-            callbacks=[], 
-            metrics={},
-            **kwargs):
-        
-        self._stop_iter = False
-        metrics.setdefault('loss', loss_to_metric(self.loss_func))
-        train_df = pd.DataFrame(columns=metrics.keys(), index=range(epochs))
-        valid_df = pd.DataFrame(columns=metrics.keys(), index=range(epochs))
+        if dataset.collate_fn is not None:
+            default_dataloader_args["collate_fn"] = dataset.collate_fn
 
-        if load_model:
-            load_model = self.load_checkpoint(epoch=load_model)
-            train_df.update(self.load_metrics(label='train', epoch=load_model, path=None))
-            valid_df.update(self.load_metrics(label='valid', epoch=load_model, path=None))
-        else:
-            load_model = 0
+        default_dataloader_args.update(kwargs)
 
-        if isinstance(save_model, int) and save_model <= 0:
-            save_model = False
+        return torch.utils.data.DataLoader(**default_dataloader_args)
 
-        for epoch in range(epochs):
-            self.model.train()
-            loss_list = torch.zeros(len(train_dataset), len(metrics), device=self.device)
+    def train(
+        self,
+        num_epochs: int,
+        train_dataset: torch.utils.data.Dataset,
+        valid_dataset: Optional[torch.utils.data.Dataset] = None,
+        callbacks: List[TrainerCallback] = [],
+        metrics: Mapping[str, Callable] = {},
+        verbose: bool = True,  # print and save logs
+        batch_size: int = 8,
+        train_dataloader_kwargs: Optional[Mapping] = {},
+        valid_dataloader_kwargs: Optional[Mapping] = {},
+    ):
+        metrics.setdefault("loss", loss_to_metric(self.criterion))
+        metrics = MetricHandler(metrics)
 
-            if verbose:
-                progress_bar = tqdm(train_dataset, unit='batch', 
-                        initial=load_model, file=os.sys.stdout, 
-                        dynamic_ncols=True, desc=f'Epoch:{epoch}', 
-                        ascii=True, colour='GREEN')
-            else:
-                progress_bar = train_dataset
-            
-            for batch, (features, y_true) in enumerate(progress_bar):
-                y_true = y_true.to(device=self.device, dtype=self.ytype)
-                features = features.to(device=self.device, dtype=self.xtype)
+        callbacks = CallbackHandler(callbacks)
+        train_metrics = MetricHandler("train", metrics=metrics, index=range(num_epochs))
+        valid_metrics = MetricHandler("valid", metrics=metrics, index=range(num_epochs))
 
-                y_pred = self.model(features)
-                loss = self.loss_func(y_pred, y_true)
-                
-                self.optimizer.zero_grad()
-                loss.backward()
-                self.optimizer.step()
-                
-                for metric_name, metric_func in enumerate(metrics.values()):
-                    loss_list[batch, metric_name] = metric_func(y_true=y_true.detach().cpu(), y_pred=y_pred.detach().cpu()).item()
-                
-                if verbose:
-                    progress_bar.set_postfix(**dict(zip(train_df.columns, loss_list[batch].cpu().tolist())))
-            
-            train_df.iloc[epoch] = loss_list.mean(dim=0).cpu()
+        train_dataloader = self.create_dataloader(
+            dataset=train_dataset,
+            train_mode=True,
+            batch_size=batch_size,
+            **train_dataloader_kwargs,
+        )
 
-            self.model.eval()
-            with torch.no_grad():  # VALIDATION
-                if valid_dataset is not None:
-                    valid_df.iloc[epoch] = self.evaluate(
-                            valid_dataset, 
-                            load_model=False, 
-                            save_metrics=False,
-                            verbose=False, 
-                            callbacks=[], 
-                            metrics=metrics).mean(axis=0)
+        valid_dataloader = self.create_dataloader(
+            dataset=valid_dataset,
+            train_mode=False,
+            batch_size=batch_size,
+            **valid_dataloader_kwargs,
+        )
 
-                if verbose:
-                    df = pd.DataFrame((train_df.iloc[epoch], valid_df.iloc[epoch]), 
-                                      columns=metrics.keys(), index=['train', 'valid'])
-                    print(df)
-                
-                for callback in callbacks:
-                    callback.on_epoch_end(trainer=self, 
-                        epoch=epoch + 1,
-                        y_pred=y_pred.detach().cpu(),
-                        y_true=y_true.detach().cpu(),
-                        x_true=features.detach().cpu(),
-                    **train_df.iloc[epoch].add_prefix('train_'),
-                    **valid_df.iloc[epoch].add_prefix('valid_')
-                    )
-            
-            if self.scheduler is not None:
-                self.scheduler.step()
+        callbacks.call_event(
+            "on_training_run_begin",
+            self,
+        )
 
-            if self._stop_iter:
-                break
-        
-        for callback in callbacks:
-            callback.on_training_end(self, epoch=epoch + 1,
-              **train_df.iloc[epoch].add_prefix('train_'),
-              **valid_df.iloc[epoch].add_prefix('valid_')
+        for epoch in range(num_epochs):
+
+            self._run_training_epoch(
+                epoch=epoch,
+                train_loader=train_dataloader,
+                callbacks=callbacks,
+                metrics=train_metrics,
+                verbose=verbose,
             )
-        
-        if save_model:
-            self.save_checkpoint(epoch=epochs)
-            self.save_metrics(label='train', epoch=epochs, **train_df)
-            self.save_metrics(label='valid', epoch=epochs, **valid_df)
 
-        return pd.concat((train_df.add_prefix('train_'), valid_df.add_prefix('valid_')), axis=1)
-
-    def evaluate(self, test_dataset, 
-            load_model=False,
-            save_metrics=False, # save model and losses
-            verbose=True, # print and save logs
-            callbacks=[], 
-            metrics={},
-            **kwargs):
-        metrics.setdefault('loss', loss_to_metric(self.loss_func))
-        test_df = pd.DataFrame(columns=metrics.keys(), index=range(len(test_dataset)))
-
-        if load_model is None or load_model:
-            load_model = self.load_checkpoint(epoch=load_model)
-
-        if verbose:
-            test_dataset = tqdm(
-                test_dataset,
-                unit='case',
-                file=os.sys.stdout,
-                dynamic_ncols=True,
-                desc=f'Test:{load_model}',
-                colour='GREEN',
-                postfix=metrics,
+            if valid_dataset is not None:
+                self._run_valid_epoch(
+                    valid_dataloader,
+                    valid_metrics,
+                    callbacks,
+                    verbose=verbose,
                 )
+
+        callbacks.call_event(
+            "on_training_run_end",
+            self,
+            epoch=epoch + 1,
+        )
+
+        return train_metrics, valid_metrics
+        """ pd.concat(
+            (train_df.add_prefix("train_"), valid_df.add_prefix("valid_")), axis=1
+        ) """
+
+    def evaluate(
+        self,
+        test_dataset,
+        load_model=False,
+        save_metrics=False,  # save model and losses
+        verbose=True,  # print and save logs
+        callbacks=[],
+        metrics={},
+        test_dataloader_kwargs={},
+        **kwargs,
+    ):
+        metrics.setdefault("loss", loss_to_metric(self.criterion))
+        metrics = MetricHandler(metrics)
+
+        eval_dataloader = self.create_dataloader(
+            dataset=test_dataset,
+            train_mode=False,
+            batch_size=test_dataset.__len__(),
+            **test_dataloader_kwargs,
+        )
+
+        callbacks = CallbackHandler(callbacks)
+        metrics.setdefault("loss", loss_to_metric(self.criterion))
+        eval_metrics = MetricHandler(
+            "test", metrics=metrics, index=range(eval_dataloader.__len__())
+        )
+
+        self.model.eval()
+
+        self._run_evaluate(
+            eval_loader=eval_dataloader,
+            callbacks=callbacks,
+            metrics=eval_metrics,
+        )
+
+        return eval_metrics
+
+    def _run_training_epoch(
+        self,
+        epoch: int,
+        train_loader: utils.data.DataLoader,
+        callbacks: CallbackHandler,
+        metrics: MetricHandler,
+        verbose: bool = True,
+    ) -> torch.Tensor:
+        metrics.reset(trainer=self)
+        callbacks.call_event(
+            "on_train_epoch_begin",
+            self,
+            epoch=epoch + 1,
+        )
+
+        self.model.train()
+        for batch, (features, y_truth) in enumerate(train_loader):
+            self._run_training_step(
+                epoch=epoch, batch_idx=batch,
+                x=features.to(device=self.device, dtype=self.xtype),
+                y=y_truth.to(device=self.device, dtype=self.ytype),
+                callbacks=callbacks,
+                metrics=metrics,
+            )
+
+        metrics.update(epoch=epoch)
+        callbacks.call_event(
+            "on_train_epoch_end",
+            self,
+            epoch=epoch + 1,
+        )
+
+
+    def _run_training_step(
+        self,
+        epoch: int,
+        batch_idx: int,
+        x: torch.Tensor,
+        y: torch.Tensor,
+        callbacks: CallbackHandler,
+        metrics: MetricHandler,
+        **kwargs,
+    ) -> torch.Tensor:
+        callbacks.call_event(
+            "on_train_step_begin",
+            self, step=batch_idx,
+        )
+
+        y_pred = self.model(x)
+        loss = self.criterion(y_pred, y)
+
+        self.optimizer.zero_grad()
+        loss.backward()
+        self.optimizer.step()
+
+        metric_results = metrics.step(
+            batch_idx=batch_idx,
+            y_true=y.detach(), 
+            y_pred=y_pred.detach(),
+        )
+
+        callbacks.call_event(
+            "on_train_step_end",
+            self, step=batch_idx,
+            **metric_results,
+        )
+
+    def _run_evaluate(
+        self,
+        index: int,
+        eval_loader: utils.data.DataLoader,
+        callbacks: CallbackHandler,
+        metrics: MetricHandler,
+    ) -> torch.Tensor:
+        metrics.reset(trainer=self)
+
+        callbacks.call_event(
+            "on_valid_epoch_begin",
+            self,
+        )
 
         self.model.eval()
         with torch.no_grad():
-            loss_list = torch.empty(len(test_dataset), len(test_df.columns), device=self.device)
-            for i, (features, y_true) in enumerate(test_dataset):
-                y_true = y_true.to(device=self.device, dtype=self.ytype)
-                features = features.to(device=self.device, dtype=self.xtype)
+            for batch, (features, y_true) in enumerate(eval_loader):
+                self._run_evaluating_step(
+                    batch_idx=batch,
+                    x=features.to(device=self.device, dtype=self.xtype),
+                    y=y_true.to(device=self.device, dtype=self.ytype),
+                    callbacks=callbacks,
+                    metrics=metrics,
+                )
 
-                y_pred = self.model(features)
-                loss = self.loss_func(y_pred, y_true)
+        metrics.update(epoch=index)
+        callbacks.call_event(
+            "on_valid_epoch_end",
+            self,
+            epoch=index + 1,
+        )
 
-                for name, metric in metrics.items():
-                    test_df[name][i] = metric(y_true=y_true.detach().cpu(), y_pred=y_pred.detach().cpu()).item()
-                
-                for callback in callbacks:
-                    callback.on_testing_end(trainer=self, 
-                        y_pred=y_pred.detach().cpu(),
-                        y_true=y_true.detach().cpu(),
-                        x_true=features.detach().cpu(),
-                      #**test_df.iloc[i].add_prefix('test_')
-                    )
+    def _run_evaluating_step(
+        self,
+        batch_idx: int,
+        x: torch.Tensor,
+        y: torch.Tensor,
+        callbacks: CallbackHandler,
+        metrics: Mapping[str, Callable],
+        loss_list: List,
+        **kwargs,
+    ):
+        callbacks.call_event(
+            "on_eval_step_begin",
+            self,
+            step=batch_idx,
+        )
 
-                if verbose:
-                    test_dataset.set_postfix(**test_df.iloc[i])
+        y_pred = self.model(x)
+        loss = self.criterion(y_pred, y)
 
-        if save_metrics:
-            self.save_metrics(label='test', epoch=load_model, **test_df)
+        for metric_name, metric_func in enumerate(metrics.values()):
+            loss_list[batch_idx, metric_name] = metric_func(
+                y_truth=y.detach().cpu(), y_pred=y_pred.detach().cpu()
+            ).item()
 
-        return test_df
-
-
-
+        callbacks.call_event(
+            "on_eval_step_end",
+            self,
+            step=batch_idx,
+        )

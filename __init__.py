@@ -3,8 +3,8 @@ import torch, os, json
 
 import utils.data
 import utils.models
+import utils.loggers
 import utils.callbacks
-import utils.generators
 
 import utils.metrics
 import utils.trainer
