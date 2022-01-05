@@ -1,8 +1,7 @@
 import torch
 import numpy as np
 import pandas as pd
-from .trainer import Trainer
-from .callbacks import (
+from utils.callbacks import (
     CallbackHandler,
     CallbackMethodNotImplementedError,
     TrainerCallback,
@@ -41,7 +40,7 @@ class MetricHandler(TrainerCallback):
         self._dataframe = pd.DataFrame(columns=metrics.keys(), index=index)
 
     # on_train_epoch_begin
-    def reset(self, trainer: Trainer):
+    def reset(self, trainer: "Trainer"):
         self.loss_list = torch.empty(
             trainer._train_dataloader.__len__(),
             self.metrics.__len__(),
@@ -51,7 +50,7 @@ class MetricHandler(TrainerCallback):
 
     # on_train_epoch_end
     def update(self, epoch: int):
-        self._dataframe.loc[epoch] = self.loss_list.mean(axis=0).numpy()
+        self._dataframe.loc[epoch] = self.loss_list.mean(axis=0).cpu().numpy()
 
     # on_train_step_end
     def step(

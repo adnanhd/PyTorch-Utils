@@ -1,7 +1,7 @@
 import pandas as pd
 import os, time
 import torch, math
-from .metrics import loss_to_metric
+from .metrics import loss_to_metric, MetricHandler
 from tqdm import tqdm, trange, utils
 from .callbacks import (
     CallbackHandler,
@@ -9,8 +9,6 @@ from .callbacks import (
     TrainerCallback,
     StopTrainingError,
 )
-
-from .metrics import MetricHandler
 
 from typing import List, Dict, Any, Mapping, Optional, Union, Callable, Tuple, Iterable
 
@@ -27,7 +25,7 @@ class Trainer:
         self,
         model: torch.nn.Module,
         optim: torch.optim.Optimizer,
-        loss: Union[Callable, torch.nn.module.loss._Loss],
+        loss: Union[Callable, torch.nn.modules.loss._Loss],
         sched: Optional[torch.optim.lr_scheduler._LRScheduler] = None,
         loss_path: Optional[str] = None,  # todo: remove
         model_name: str = "model",
@@ -133,8 +131,8 @@ class Trainer:
         train_mode: bool = True,
         batch_size: Optional[int] = None,
         **kwargs,
-    ) -> utils.data.DataLoader:
-        assert isinstance(dataset, torch.utils.data.Dataset)
+    ) -> torch.utils.data.DataLoader:
+        assert isinstance(dataset, torch.utils.data.Dataset), type(dataset)
         default_dataloader_args = dict(
             {
                 "dataset": dataset,
@@ -149,9 +147,6 @@ class Trainer:
                 ),
             }
         )
-
-        if dataset.collate_fn is not None:
-            default_dataloader_args["collate_fn"] = dataset.collate_fn
 
         default_dataloader_args.update(kwargs)
 
@@ -170,56 +165,46 @@ class Trainer:
         valid_dataloader_kwargs: Optional[Mapping] = {},
     ):
         metrics.setdefault("loss", loss_to_metric(self.criterion))
-        metrics = MetricHandler(metrics)
 
         callbacks = CallbackHandler(callbacks)
-        train_metrics = MetricHandler("train", metrics=metrics, index=range(num_epochs))
-        valid_metrics = MetricHandler("valid", metrics=metrics, index=range(num_epochs))
+        train_metrics = MetricHandler("train", metrics=metrics, 
+                                      index=range(num_epochs))
 
-        train_dataloader = self.create_dataloader(
+        self._train_dataloader = self.create_dataloader(
             dataset=train_dataset,
             train_mode=True,
             batch_size=batch_size,
             **train_dataloader_kwargs,
         )
-
-        valid_dataloader = self.create_dataloader(
-            dataset=valid_dataset,
-            train_mode=False,
-            batch_size=batch_size,
-            **valid_dataloader_kwargs,
-        )
-
-        callbacks.call_event(
-            "on_training_run_begin",
-            self,
-        )
-
-        for epoch in range(num_epochs):
-
-            self._run_training_epoch(
-                epoch=epoch,
-                train_loader=train_dataloader,
-                callbacks=callbacks,
-                metrics=train_metrics,
-                verbose=verbose,
+        
+        if valid_dataset is not None:
+            valid_metrics = MetricHandler("valid", metrics=metrics, 
+                                          index=range(num_epochs))
+            self._valid_dataloader = self.create_dataloader(
+                dataset=valid_dataset,
+                train_mode=False,
+                batch_size=batch_size,
+                **valid_dataloader_kwargs,
             )
+        else:
+            valid_metrics = None
+            self._valid_dataloader = None
 
-            if valid_dataset is not None:
-                self._run_valid_epoch(
-                    valid_dataloader,
-                    valid_metrics,
-                    callbacks,
-                    verbose=verbose,
-                )
-
-        callbacks.call_event(
-            "on_training_run_end",
-            self,
-            epoch=epoch + 1,
+        
+        self._run_training(
+                num_epochs=num_epochs,
+                train_dataloader=self._train_dataloader,
+                valid_dataloader=self._valid_dataloader,
+                callbacks=callbacks,
+                train_metrics=train_metrics,
+                valid_metrics=valid_metrics,
+                verbose=verbose,  # print and save logs
         )
-
-        return train_metrics, valid_metrics
+        
+        if valid_dataset is not None:
+            return train_metrics, valid_metrics
+        else:
+            return train_metrics
         """ pd.concat(
             (train_df.add_prefix("train_"), valid_df.add_prefix("valid_")), axis=1
         ) """
@@ -260,11 +245,50 @@ class Trainer:
         )
 
         return eval_metrics
+    
+    def _run_training(
+        self,
+        num_epochs: int,
+        callbacks: CallbackHandler,
+        train_metrics: MetricHandler,
+        train_dataloader: torch.utils.data.DataLoader,
+        valid_metrics: Optional[MetricHandler] = None,
+        valid_dataloader: Optional[torch.utils.data.DataLoader] = None,
+        verbose: bool = True,  # print and save logs
+    ):
+        callbacks.call_event(
+            "on_training_run_begin",
+            self,
+        )
+
+        for epoch in range(num_epochs):
+
+            self._run_training_epoch(
+                epoch=epoch,
+                train_loader=train_dataloader,
+                callbacks=callbacks,
+                metrics=train_metrics,
+                verbose=verbose,
+            )
+
+            if valid_dataloader is not None:
+                self._run_valid_epoch(
+                    valid_dataloader,
+                    valid_metrics,
+                    callbacks,
+                    verbose=verbose,
+                )
+
+        callbacks.call_event(
+            "on_training_run_end",
+            self,
+            epoch=epoch + 1,
+        )
 
     def _run_training_epoch(
         self,
         epoch: int,
-        train_loader: utils.data.DataLoader,
+        train_loader: torch.utils.data.DataLoader,
         callbacks: CallbackHandler,
         metrics: MetricHandler,
         verbose: bool = True,
@@ -331,7 +355,7 @@ class Trainer:
     def _run_evaluate(
         self,
         index: int,
-        eval_loader: utils.data.DataLoader,
+        eval_loader: torch.utils.data.DataLoader,
         callbacks: CallbackHandler,
         metrics: MetricHandler,
     ) -> torch.Tensor:
