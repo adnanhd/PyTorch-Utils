@@ -8,18 +8,18 @@ import utils.generators
 
 import utils.metrics
 import utils.trainer
-import utils.params
-import utils.config
+#import utils.params         #####
+#import utils.config         #####
 
 epsilon = 1e-5
 torch.backends.cudnn.benchmark = True
 
 
 class Pipeline(object):
-    from utils.params import HParams
+    #from utils.params import HParams    #####
     def __init__(self, model_name=None, 
             experiment="first_entity", 
-            description=None, cfg=HParams(), 
+            description=None, cfg=None ,  ### HParams() yazıyordu None yerine
             **kwargs):
         self.trainer = None
         self.metrics = dict()

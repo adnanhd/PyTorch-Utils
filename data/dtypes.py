@@ -158,10 +158,10 @@ class Bezier(Datum):
 
 
 class FlowField(Datum):
-    shape = (6, 256, 256)
+    shape = (6, 256, 256)           
     linspace = None
     suffix = '_flowfield.mat'
-    keys = ['Rho', 'U', 'V', 'P', 'T', 'Ma'] # ['P', 'Rho', 'T', 'U', 'V', 'Ma', 'Cp']
+    keys = ['Rho', 'U', 'V', 'P'] # ['P', 'Rho', 'T', 'U', 'V', 'Ma', 'Cp'] # 05.01.2022# 05.01.2022# 05.01.2022# 05.01.2022# 05.01.2022
 
     def __init__(self, cdf):
         self.data = cdf.reshape(FlowField.shape)
@@ -181,7 +181,7 @@ class FlowField(Datum):
             axes = fig.subplots(self.shape[0])
         else:
             assert all(map(lambda ax: isinstance(ax, plt.Axes), axes))
-
+            
         if title:
             ax1.set_title(title)
 
@@ -190,6 +190,10 @@ class FlowField(Datum):
 
         for data, ax, key in zip(self.data, axes, self.keys):
             ax.set_title(key)
+            
+            if isinstance(self.data, torch.Tensor):
+                data = data.detach().cpu().numpy()
+                
             fig.colorbar(ax.contourf(data, cmap=plt.cm.jet), ax=ax)
 
         return fig, axes
@@ -222,7 +226,12 @@ class DistFunc(Datum):
         if title:
             ax1.set_title(title)
 
-        fig.colorbar(ax.contourf(self.data[0], cmap=plt.cm.jet), ax=ax)
+        if isinstance(self.data, torch.Tensor):
+            data = self.data[0].detach().cpu().numpy()
+        else:
+            data = self.data[0]
+            
+        fig.colorbar(ax.contourf(data, cmap=plt.cm.jet), ax=ax)
 
         return fig, ax
 

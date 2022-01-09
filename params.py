@@ -1,6 +1,9 @@
 import copy, torch, argparse
 
 class HParams(object):
+
+    
+    '''
     parser = argparse.ArgumentParser()
     parser.add_argument('-f', type=str, default='')
     parser.add_argument('--batch_size', type=int, help="Batch Size in Training", default=16)
@@ -16,9 +19,11 @@ class HParams(object):
     parser.add_argument('--multi_gpu', type=bool, default=False)
     parser.add_argument('--normalize', action='store_true', help="Normalize input data")
     #parser.add_argument('--wandb', action='store_true', help='Toggle for Weights & Biases (wandb)')
-    parser.add_argument('--device', type=str, default='cuda', choices=['cuda', 'cpu'],
+    #parser.add_argument('--device', type=str, default='cuda', choices=['cuda', 'cpu'],
                                         help='The device to run on models, cuda is default.')
-    
+    '''
+
+
     """Hyperparameters used for training."""
     def __init__(self, parser=None, *args, **kwargs):
 

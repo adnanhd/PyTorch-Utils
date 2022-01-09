@@ -152,7 +152,7 @@ class Trainer:
                 self.optimizer.step()
                 
                 for metric_name, metric_func in enumerate(metrics.values()):
-                    loss_list[batch, metric_name] = metric_func(y_true=y_true.detach(), y_pred=y_pred.detach()).item()
+                    loss_list[batch, metric_name] = metric_func(y_true=y_true.detach().cpu(), y_pred=y_pred.detach().cpu()).item()
                 
                 if verbose:
                     progress_bar.set_postfix(**dict(zip(train_df.columns, loss_list[batch].cpu().tolist())))
@@ -178,9 +178,9 @@ class Trainer:
                 for callback in callbacks:
                     callback.on_epoch_end(trainer=self, 
                         epoch=epoch + 1,
-                        y_pred=y_pred.detach(),
-                        y_true=y_true.detach(),
-                        x_true=features.detach(),
+                        y_pred=y_pred.detach().cpu(),
+                        y_true=y_true.detach().cpu(),
+                        x_true=features.detach().cpu(),
                     **train_df.iloc[epoch].add_prefix('train_'),
                     **valid_df.iloc[epoch].add_prefix('valid_')
                     )
@@ -241,13 +241,13 @@ class Trainer:
                 loss = self.loss_func(y_pred, y_true)
 
                 for name, metric in metrics.items():
-                    test_df[name][i] = metric(y_true=y_true.detach(), y_pred=y_pred.detach()).item()
+                    test_df[name][i] = metric(y_true=y_true.detach().cpu(), y_pred=y_pred.detach().cpu()).item()
                 
                 for callback in callbacks:
                     callback.on_testing_end(trainer=self, 
-                        y_pred=y_pred.detach(),
-                        y_true=y_true.detach(),
-                        x_true=features.detach(),
+                        y_pred=y_pred.detach().cpu(),
+                        y_true=y_true.detach().cpu(),
+                        x_true=features.detach().cpu(),
                       #**test_df.iloc[i].add_prefix('test_')
                     )
 
