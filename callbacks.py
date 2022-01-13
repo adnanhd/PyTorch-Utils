@@ -18,6 +18,7 @@ class Callback:
 
 class EarlyStopping(Callback):
     """Early stops the training if validation loss doesn't improve after a given patience."""
+
     def __init__(self, patience=7, verbose=False, delta=0, trace_func=print, save_model=True):
         """
         Args:
@@ -37,7 +38,7 @@ class EarlyStopping(Callback):
         self.counter = 0
         self.best_score = None
         self.early_stop = False
-        self.save_model= save_model
+        self.save_model = save_model
         self.val_loss = np.Inf
         self.delta = delta
         self.trace_func = trace_func
@@ -50,11 +51,12 @@ class EarlyStopping(Callback):
         elif score < self.best_score + self.delta:
             self.counter += 1
             if self.verbose:
-                self.trace_func(f'EarlyStopping counter: {self.counter} out of {self.patience}')
+                self.trace_func(
+                    f'EarlyStopping counter: {self.counter} out of {self.patience}')
             if self.counter >= self.patience:
                 self.early_stop = True
                 trainer.stop_iter(restart=False)
-                if self.save_model: 
+                if self.save_model:
                     trainer.save_checkpoint(epoch=epoch)
         else:
             self.best_score = score
@@ -63,24 +65,32 @@ class EarlyStopping(Callback):
         return self.early_stop
 
 
-class SaveBestModel(Callback):
+class ModelCheckpoint(Callback):
+    from copy import deepcopy
     """Early stops the training if validation loss doesn't improve after a given patience."""
-    def __init__(self, save_best_metric='valid_loss', verbose=False, this_max=False):
-        self.save_best_metric = save_best_metric
+
+    def __init__(self, monitor='valid_loss', verbose=False, save_max=False, save_model=False, step_size=10):
+        self.monitor = monitor
         self.best_weights = None
-        self.max = this_max
+        self.max = save_max
+        self.save_model = save_model
         self.verbose = verbose
-        self.best = float('-inf') if this_max else float('inf')
+        self.step_size = step_size
+        self.best = float('-inf') if save_max else float('inf')
 
     def on_epoch_end(self, trainer, epoch=None, **kwargs):
-        metric_value = kwargs[self.save_best_metric]
+        metric_value = kwargs[self.monitor]
 
-        if self.max and metric_value > self.best or metric_value < self.best:
-            self.best = metric_value
-            self.best_weights = trainer.model.state_dict()
-            if self.verbose: 
-                print("best model is saved...")
+        if epoch % self.step_size == 0:
+            if self.max and metric_value > self.best or metric_value < self.best:
+                self.best = metric_value
+                self.best_weights = self.deepcopy(trainer.model.state_dict())
+                if self.verbose:
+                    print("best model is saved...")
 
     def on_train_end(self, trainer, **kwargs):
         if self.best_weights is not None:
             self.model.save_state_dict(self.best_weights)
+
+        if self.save_model:
+            self.save_checkpoint(epoch=epochs)
