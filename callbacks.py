@@ -91,6 +91,10 @@ class ModelCheckpoint(Callback):
     def on_train_end(self, trainer, **kwargs):
         if self.best_weights is not None:
             self.model.save_state_dict(self.best_weights)
+            if self.verbose:
+                print("best model is loaded back to model...")
 
         if self.save_model:
             self.save_checkpoint(epoch=epochs)
+            if self.verbose:
+                print("best model is saved to a path...")

@@ -46,7 +46,7 @@ class Trainer:
         makedirs(self.model_path)
         if path is None or os.path.isdir(path):
             path = os.path.join(self.model_path if path is None else path,
-                                f'{self.model_name}_{epoch}_iter.ckpt')
+                                f'{self.model_name}.ckpt')
 
         state = {
             'version': '1.0.0', **kwargs,
@@ -69,16 +69,15 @@ class Trainer:
         if path is None:
             path = self.model_path
 
-        path = os.path.join(path, f'{self.model_name}_{epoch}_iter.ckpt')
+        path = os.path.join(path, f'{self.model_name}.ckpt')
 
         checkpoint = torch.load(path, map_location=self.device)
         checkkeys = ('model', 'scheduler', 'optimizer', 'criterion')
 
         for key in checkkeys:
-            if self.__getattribute__(key) and checkpoint[key]:
-                self.__getattribute__(key).load_state_dict(checkpoint[key])
-
-        return epoch
+            key2 = key if key != 'criterion' else 'loss_func'
+            if self.__getattribute__(key2) and checkpoint[key]:
+                self.__getattribute__(key2).load_state_dict(checkpoint[key])
 
     def load_metrics(self, label, epoch=None, path=None):
         if path is None:
@@ -101,6 +100,7 @@ class Trainer:
 
     def fit(self, epochs, train_dataset,
             valid_dataset=None,
+            save_metrics=False,
             verbose=True,  # print and save logs
             callbacks=[],
             metrics={}):
@@ -134,7 +134,7 @@ class Trainer:
                 y_pred[y_pred == 0] = 1e-5
                 y_true[y_true == 0] = 1e-5
 
-                loss = self.loss_func(y_pred, y_true)
+                loss = self.loss_func(y_pred, y_true, features)
 
                 self.optimizer.zero_grad()
                 loss.backward()
