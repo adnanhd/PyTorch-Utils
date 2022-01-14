@@ -1,5 +1,6 @@
 import numpy as np
 import torch
+from typing import Optional
 
 
 class Callback:
@@ -69,7 +70,13 @@ class ModelCheckpoint(Callback):
     from copy import deepcopy
     """Early stops the training if validation loss doesn't improve after a given patience."""
 
-    def __init__(self, monitor='valid_loss', verbose=False, save_max=False, save_model=False, step_size=10):
+    def __init__(self,
+                 monitor: str = 'valid_loss', # if monitor is None, save model at every step size
+                 step_size: int = 10,
+                 verbose: bool = False,
+                 save_max: bool = False,
+                 save_model: bool = False,
+                 ):
         self.monitor = monitor
         self.best_weights = None
         self.max = save_max
