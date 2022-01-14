@@ -46,7 +46,7 @@ class Trainer:
         makedirs(self.model_path)
         if path is None or os.path.isdir(path):
             path = os.path.join(self.model_path if path is None else path,
-                                f'{self.model_name}_{epoch}_iter.ckpt')
+                                f'{self.model_name}.ckpt')
 
         state = {
             'version': '1.0.0', **kwargs,
@@ -69,16 +69,15 @@ class Trainer:
         if path is None:
             path = self.model_path
 
-        path = os.path.join(path, f'{self.model_name}_{epoch}_iter.ckpt')
+        path = os.path.join(path, f'{self.model_name}.ckpt')
 
         checkpoint = torch.load(path, map_location=self.device)
         checkkeys = ('model', 'scheduler', 'optimizer', 'criterion')
 
         for key in checkkeys:
-            if self.__getattribute__(key) and checkpoint[key]:
-                self.__getattribute__(key).load_state_dict(checkpoint[key])
-
-        return epoch
+            key2 = key if key != 'criterion' else 'loss_func'
+            if self.__getattribute__(key2) and checkpoint[key]:
+                self.__getattribute__(key2).load_state_dict(checkpoint[key])
 
     def load_metrics(self, label, epoch=None, path=None):
         if path is None:
@@ -101,6 +100,7 @@ class Trainer:
 
     def fit(self, epochs, train_dataset,
             valid_dataset=None,
+            save_metrics=False,
             verbose=True,  # print and save logs
             callbacks=[],
             metrics={}):
@@ -130,11 +130,11 @@ class Trainer:
 
             for batch, (features, y_true) in enumerate(progress_bar):
                 y_pred = self.model(features)
-                # y_pred[:,0,:,:][y_pred[:,0,:,:] == 0] = 1e-5  # 06.01.2022 06.01.2022 06.01.2022 06.01.2022 06.01.2022
+                # y_pred[:,0,:,:][y_pred[:,0,:,:] == 0] = 1e-5  # 06.01.2022 
                 y_pred[y_pred == 0] = 1e-5
                 y_true[y_true == 0] = 1e-5
 
-                loss = self.loss_func(y_pred, y_true)
+                loss = self.loss_func(y_pred, y_true, features)
 
                 self.optimizer.zero_grad()
                 loss.backward()
@@ -142,7 +142,10 @@ class Trainer:
 
                 for metric_name, metric_func in enumerate(metrics.values()):
                     loss_list[batch, metric_name] = metric_func(
-                        y_true=y_true.detach(), y_pred=y_pred.detach()).item()
+                        y_true=y_true.detach(), 
+                        y_pred=y_pred.detach(), 
+                        x_feat=features.detach(),
+                    ).item()
 
                 if verbose:
                     progress_bar.set_postfix(
@@ -234,7 +237,10 @@ class Trainer:
 
                 for name, metric in metrics.items():
                     test_df[name][i] = metric(
-                        y_true=y_true.detach(), y_pred=y_pred.detach()).item()
+                        y_true=y_true.detach(), 
+                        y_pred=y_pred.detach(),
+                        x_feat=features.detach(),
+                    ).item()
 
                 for callback in callbacks:
                     callback.on_testing_end(trainer=self,
