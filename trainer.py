@@ -130,7 +130,7 @@ class Trainer:
 
             for batch, (features, y_true) in enumerate(progress_bar):
                 y_pred = self.model(features)
-                # y_pred[:,0,:,:][y_pred[:,0,:,:] == 0] = 1e-5  # 06.01.2022 06.01.2022 06.01.2022 06.01.2022 06.01.2022
+                # y_pred[:,0,:,:][y_pred[:,0,:,:] == 0] = 1e-5  # 06.01.2022 
                 y_pred[y_pred == 0] = 1e-5
                 y_true[y_true == 0] = 1e-5
 
@@ -142,7 +142,10 @@ class Trainer:
 
                 for metric_name, metric_func in enumerate(metrics.values()):
                     loss_list[batch, metric_name] = metric_func(
-                        y_true=y_true.detach(), y_pred=y_pred.detach()).item()
+                        y_true=y_true.detach(), 
+                        y_pred=y_pred.detach(), 
+                        x_feat=features.detach(),
+                    ).item()
 
                 if verbose:
                     progress_bar.set_postfix(
@@ -234,7 +237,10 @@ class Trainer:
 
                 for name, metric in metrics.items():
                     test_df[name][i] = metric(
-                        y_true=y_true.detach(), y_pred=y_pred.detach()).item()
+                        y_true=y_true.detach(), 
+                        y_pred=y_pred.detach(),
+                        x_feat=features.detach(),
+                    ).item()
 
                 for callback in callbacks:
                     callback.on_testing_end(trainer=self,

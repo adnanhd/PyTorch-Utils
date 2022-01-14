@@ -1,8 +1,9 @@
 import torch
 
+
 def loss_to_metric(loss):
-    def metric(y_true, y_pred):
-        return loss(input=y_pred, target=y_true)
+    def metric(y_true, y_pred, x_feat):
+        return loss(input=y_pred, target=y_true, feature=x_feat)
     return metric
 
 
