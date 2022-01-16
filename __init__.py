@@ -8,80 +8,76 @@ import utils.generators
 
 import utils.metrics
 import utils.trainer
-#import utils.params         #####
-#import utils.config         #####
+import utils.params
+import utils.config
 
 epsilon = 1e-5
 torch.backends.cudnn.benchmark = True
 
 
 class Pipeline(object):
-    #from utils.params import HParams    #####
-    def __init__(self, model_name=None, 
-            experiment="first_entity", 
-            description=None, cfg=None ,  ### HParams() yazıyordu None yerine
+    from utils.params import TrainerArguments
+    from typing import Optional, Union
+    def __init__(self, 
+            save_path: Optional[str]="checkpoints",
+            description: Optional[str]=None, 
             **kwargs):
+
         self.trainer = None
         self.metrics = dict()
-        self.hparams = cfg
-        self.hparams.update(**kwargs)
+        self.tparams = self.TrainerArguments(**kwargs)
         self.generator = utils.generators.HTMLGenerator(
-            project=self.project, entity=experiment, 
+            project=save_path, 
+            fname=self.tparams.experiment, 
             main_page=True)
-        self.experiment = experiment
 
-    @property
-    def project(self):
-        return self.hparams.model_path
+    def compile(self, 
+            model: torch.nn.Module, 
+            loss: torch.nn.Module, 
+            metrics: Optional[dict]={},
+            model_path: Optional[str]=None,
+            **kwargs):
 
-    def garbage(self):
-        if self.hparams.normalize:
-            inp = dataset.features.float()
+        if model_path is None:
+            model_path = self.generator.parent
 
-            mean = torch.mean(inp, dim=0) + epsilon
-            std = torch.std(inp, dim=0) + epsilon
-
-            dataset.transform = transforms.Compose(
-                [transforms.Normalize(mean=mean, std=std)])
-
-    def compile(self, model, loss, metrics={}):
-        device = torch.device(
-            self.hparams.device if torch.cuda.is_available() else 'cpu')
-
+        hparam = utils.params.HParams(model_path=model_path, **kwargs)
+        print(hparam, self.tparams)
         self.trainer = utils.trainer.Trainer(
                 model=model, 
                 loss=loss, 
                 optim=torch.optim.Adam(
                     model.parameters(), 
-                    lr=self.hparams.learn_rate, 
-                    weight_decay=self.hparams.weight_decay),
-                **self.hparams.trainer)
+                    lr=self.tparams.learn_rate, 
+                    weight_decay=self.tparams.weight_decay),
+                **vars(hparam), **vars(self.tparams))
 
         self.metrics.update(metrics)
         self.generator.doc.body.add(self.generator.tags.h2("Hyper Parameters"))
-        self.generator.doc.body.add(self.generator.tags.pre(str(self.hparams)))
+        self.generator.doc.body.add(self.generator.tags.pre(str(self.tparams)))
         self.generator.doc.body.add(self.generator.tags.h2("Compile"))
         self.generator(self.trainer.model, self.trainer.loss_func)
 
-    def train(self, train_dataset, valid_dataset=None, callbacks=[], **kwargs):
-        fig = utils.generators.FigureGenerator(1, project=self.project)
+    def train(self, train_dataset, valid_dataset=None, callbacks=[], metrics={}, **kwargs):
+        fig = utils.generators.FigureGenerator(1, project=self.generator.parent)
 
         train_loader = train_dataset.dataloader(train=True,
-                                                batch_size=self.hparams.batch_size,
-                                                num_workers=self.hparams.num_workers)
+                                                batch_size=self.tparams.batch_size)
 
         if valid_dataset is None:
             valid_loader = None
         else:
             valid_loader = valid_dataset.dataloader(
-                batch_size=1, train=False,
-                num_workers=self.hparams.num_workers)
-        df = self.trainer.fit(epochs=self.hparams.num_epochs,
+                batch_size=1, train=False)
+
+        metrics.update(self.metrics)
+        kwargs.update(vars(self.tparams))
+        df = self.trainer.fit(epochs=self.tparams.num_epochs,
                     train_dataset=train_loader,
                     valid_dataset=valid_loader,
                     callbacks=callbacks,
-                    metrics=self.metrics,
-                    **self.hparams.fit, **kwargs)  # print and save logs
+                    metrics=metrics, 
+                    **kwargs)  # print and save logs
 
         fig[0] = utils.generators.FigureGenerator.Semilogy(df)
         self.generator.doc.body.add(self.generator.tags.h2("Training"))
@@ -90,18 +86,19 @@ class Pipeline(object):
         self.generator(df)
         return df
 
-    def test(self, test_dataset, callbacks=[], **kwargs):
-        fig = utils.generators.FigureGenerator(1, project=self.project)
+    def test(self, test_dataset, callbacks=[], metrics={}, **kwargs):
+        fig = utils.generators.FigureGenerator(1, project=self.generator.parent)
 
         test_loader = test_dataset.dataloader(
-            batch_size=1, train=False,
-            num_workers=self.hparams.num_workers)
+            batch_size=1, train=False)
 
+        metrics.update(self.metrics)
+        kwargs.update(vars(self.tparams))
         df = self.trainer.evaluate(
                 test_dataset=test_loader,
                 callbacks=callbacks,
-                metrics=self.metrics,
-                **self.hparams.evaluate, **kwargs)  # print and save logs
+                metrics=metrics,
+                **kwargs)  # print and save logs
 
         fig[0] = utils.generators.FigureGenerator.Histogram(df)
         self.generator.doc.body.add(self.generator.tags.h2("Testing"))
@@ -112,7 +109,7 @@ class Pipeline(object):
 
     def log(self, fname=None): # 
         if fname is None:
-            fname = os.path.join(self.project, f".{self.experiment}_runtimeinfo.log")
+            fname = os.path.join(self.generator.parent, f".{self.tparams.experiment}_runtimeinfo.log")
 
         with open(fname, 'w') as text_file:
             print('Memory Loc.:  ', self.trainer.device, file=text_file)
@@ -124,7 +121,7 @@ class Pipeline(object):
                 0)/1024**2, 1), 'MB', file=text_file)
 
         
-        if self.hparams.mode in ('train', 'both'):        
-            with open(os.path.join(self.project, f".{self.experiment}_hparams.json") ,'w') as j:
-                streamed_hparams = {key: str(value) for key, value in vars(self.hparams).items()}
+        if self.tparams.mode in ('train', 'both'):        
+            with open(os.path.join(self.generator.parent, f".{self.tparams.experiment}_hparams.json") ,'w') as j:
+                streamed_hparams = {key: str(value) for key, value in vars(self.tparams).items()}
                 json.dump(streamed_hparams, j, indent=2, sort_keys=True) 

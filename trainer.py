@@ -16,14 +16,13 @@ def makedirs(path, verbose=False):
 
 class Trainer:
     def __init__(self,  model, loss=None, optim=None, sched=None, loss_path=None,
-                 model_path=None, device=None, xtype=None, ytype=None, model_name=None,
-                 *args, **kwargs):
-
-        self.model_path = model_path if model_path else 'model'
-        self.loss_path = loss_path if loss_path else os.path.join(
-            self.model_path, 'loss')
-
-        if device:
+            model_path=None, device=None, xtype=None, ytype=None, model_name=None,
+            *args, **kwargs):
+        
+        self.model_path=model_path if model_path else 'checkpoints'
+        self.loss_path=loss_path if loss_path else os.path.join(self.model_path, 'loss')
+        
+        if device is not None:
             self.device = device
         else:
             self.device = torch.device(
@@ -39,7 +38,7 @@ class Trainer:
 
         self._stop_iter = True
 
-        self.model_name = model_name if model_name is not None else 'checkpoints'
+        self.model_name = model_name if model_name is not None else 'network'
 
     # if loss is not then model saves the best results only
     def save_checkpoint(self, epoch=None, path=None, **kwargs):
@@ -47,7 +46,6 @@ class Trainer:
         if path is None or os.path.isdir(path):
             path = os.path.join(self.model_path if path is None else path,
                                 f'{self.model_name}.ckpt')
-
         state = {
             'version': '1.0.0', **kwargs,
             'model': self.model.state_dict() if self.model else None,
@@ -97,7 +95,7 @@ class Trainer:
 
     def stop_iter(self, restart=False):
         self._stop_iter = not restart
-
+        
     def fit(self, epochs, train_dataset,
             valid_dataset=None,
             save_metrics=False,
@@ -190,10 +188,6 @@ class Trainer:
                                      **train_df.iloc[epoch].add_prefix('train_'),
                                      **valid_df.iloc[epoch].add_prefix('valid_')
                                      )
-
-        if save_metrics:
-            self.save_metrics(label='train', epoch=epochs, **train_df)
-            self.save_metrics(label='valid', epoch=epochs, **valid_df)
 
         return pd.concat((train_df.add_prefix('train_'), valid_df.add_prefix('valid_')), axis=1)
 

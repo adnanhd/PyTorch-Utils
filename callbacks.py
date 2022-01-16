@@ -57,8 +57,7 @@ class EarlyStopping(Callback):
             if self.counter >= self.patience:
                 self.early_stop = True
                 trainer.stop_iter(restart=False)
-                if self.save_model:
-                    trainer.save_checkpoint(epoch=epoch)
+
         else:
             self.best_score = score
             self.counter = 0
@@ -95,9 +94,10 @@ class ModelCheckpoint(Callback):
                 if self.verbose:
                     print("best model is saved...")
 
-    def on_train_end(self, trainer, **kwargs):
+    def on_train_end(self, trainer: Trainer, **kwargs):
         if self.best_weights is not None:
             self.model.save_state_dict(self.best_weights)
 
         if self.save_model:
             self.save_checkpoint(epoch=epochs)
+

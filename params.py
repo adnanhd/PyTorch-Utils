@@ -123,4 +123,3 @@ class HParams(object):
     @classmethod
     def from_parser(cls, parser: argparse.ArgumentParser):
         return cls(**vars(parser.parse_args()))
-
