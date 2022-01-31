@@ -161,7 +161,7 @@ class FlowField(Datum):
     shape = (6, 256, 256)           
     linspace = None
     suffix = '_flowfield.mat'
-    keys = ['Rho', 'U', 'V', 'P'] # ['P', 'Rho', 'T', 'U', 'V', 'Ma', 'Cp'] # 05.01.2022# 05.01.2022# 05.01.2022# 05.01.2022# 05.01.2022
+    keys = ['V'] #['Rho', 'U', 'V', 'P'] # ['P', 'Rho', 'T', 'U', 'V', 'Ma', 'Cp'] # 05.01.2022# 05.01.2022# 05.01.2022# 05.01.2022# 05.01.2022
 
     def __init__(self, cdf):
         self.data = cdf.reshape(FlowField.shape)
