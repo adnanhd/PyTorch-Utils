@@ -127,13 +127,13 @@ class HTMLGenerator(FileGenerator):
     ending = ".html"
     from dominate import document, tags
 
-    def __init__(self, fname, project=None, model=None, 
+    def __init__(self, entity, project=None, model=None, 
                     main_page=False, overwrite=True, **config):
-        if not fname.endswith(self.ending):
-            fname = fname + self.ending
+        if not entity.endswith(self.ending):
+            entity = entity + self.ending
 
-        self.doc = self.document(title=fname.split(self.ending)[0])
-        super(HTMLGenerator, self).__init__(fname, parent=project, folder='html', 
+        self.doc = self.document(title=entity.split(self.ending)[0])
+        super(HTMLGenerator, self).__init__(entity, parent=project, folder='html', 
                                             hierarchy=main_page, preserve=not overwrite)
         
         self.basecontent = config

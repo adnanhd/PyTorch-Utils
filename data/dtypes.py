@@ -158,10 +158,10 @@ class Bezier(Datum):
 
 
 class FlowField(Datum):
-    shape = (6, 256, 256)           
+    shape = (6, 512, 512)           
     linspace = None
     suffix = '_flowfield.mat'
-    keys = ['Rho', 'U', 'V', 'P'] # ['P', 'Rho', 'T', 'U', 'V', 'Ma', 'Cp'] # 05.01.2022# 05.01.2022# 05.01.2022# 05.01.2022# 05.01.2022
+    keys = ['Rho', 'U', 'V', 'P', 'T', 'Ma'] # ['P', 'Rho', 'T', 'U', 'V', 'Ma', 'Cp'] # 05.01.2022# 05.01.2022# 05.01.2022# 05.01.2022# 05.01.2022
 
     def __init__(self, cdf):
         self.data = cdf.reshape(FlowField.shape)
@@ -199,7 +199,7 @@ class FlowField(Datum):
         return fig, axes
 
 class DistFunc(Datum):
-    shape = (1, 256, 256)
+    shape = (1, 512, 512)
     linspace = None
     suffix = '_distFunc.mat'
 
