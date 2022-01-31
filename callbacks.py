@@ -1,6 +1,5 @@
 import numpy as np
 import torch
-from typing import Optional
 
 
 class Callback:
@@ -57,7 +56,8 @@ class EarlyStopping(Callback):
             if self.counter >= self.patience:
                 self.early_stop = True
                 trainer.stop_iter(restart=False)
-
+                if self.save_model:
+                    trainer.save_checkpoint(epoch=epoch)
         else:
             self.best_score = score
             self.counter = 0
@@ -69,13 +69,7 @@ class ModelCheckpoint(Callback):
     from copy import deepcopy
     """Early stops the training if validation loss doesn't improve after a given patience."""
 
-    def __init__(self,
-                 monitor: str = 'valid_loss', # if monitor is None, save model at every step size
-                 step_size: int = 10,
-                 verbose: bool = False,
-                 save_max: bool = False,
-                 save_model: bool = False,
-                 ):
+    def __init__(self, monitor='valid_loss', verbose=False, save_max=False, save_model=False, step_size=10):
         self.monitor = monitor
         self.best_weights = None
         self.max = save_max
@@ -90,14 +84,18 @@ class ModelCheckpoint(Callback):
         if epoch % self.step_size == 0:
             if self.max and metric_value > self.best or metric_value < self.best:
                 self.best = metric_value
-                self.best_weights = self.deepcopy(trainer.model.state_dict())
+                self.best_weights = (trainer.model.state_dict())   # parantez dışı self.deepcopy
                 if self.verbose:
                     print("best model is saved...")
 
-    def on_train_end(self, trainer: Trainer, **kwargs):
+    def on_training_end(self, trainer,epoch, **kwargs):
         if self.best_weights is not None:
-            self.model.save_state_dict(self.best_weights)
+            print(type(self.best_weights))
+            trainer.model.load_state_dict(self.best_weights)
+            if self.verbose:
+                print("best model is loaded back to model...")
 
         if self.save_model:
-            self.save_checkpoint(epoch=epochs)
-
+            trainer.save_checkpoint(epoch=epoch)
+            if self.verbose:
+                print("best model is saved to a path...")
