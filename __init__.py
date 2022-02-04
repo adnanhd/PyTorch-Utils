@@ -8,15 +8,15 @@ import utils.callbacks
 
 import utils.metrics
 import utils.trainer
-import utils.params
-import utils.config
+# command line interface
+import utils.cli
 
 epsilon = 1e-5
 torch.backends.cudnn.benchmark = True
 
 
 class Pipeline(object):
-    from utils.params import TrainerArguments
+    from utils.cli.params import TrainerArguments
     from typing import Optional, Union
     def __init__(self, 
             save_path: Optional[str]="checkpoints",
