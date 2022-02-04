@@ -43,10 +43,13 @@ class Trainer:
         self.loss_path = (
             loss_path if loss_path else os.path.join(self.model_path, "loss")
         )
-        if device is not None:
+        
+        if device is None:
+            self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        elif isinstance(device, torch.device):
             self.device = device
         else:
-            self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+            self.device = torch.device(device)
 
         self.xtype = xtype
         self.ytype = ytype
@@ -125,14 +128,24 @@ class Trainer:
 
         return torch.load(path, map_location=self.device)
 
-    @staticmethod
+    # TODO: rewrite staticmethod again
+    #@staticmethod
     def create_dataloader(
+        self,
         dataset: torch.utils.data.Dataset,
         train_mode: bool = True,
         batch_size: Optional[int] = None,
         **kwargs,
     ) -> torch.utils.data.DataLoader:
-        assert isinstance(dataset, torch.utils.data.Dataset), type(dataset)
+        assert isinstance(dataset, torch.utils.data.Dataset), """type(dataset), {} must be a descendant of torch.utils.data.Dataset""".format(type(dataset))
+        try:
+            dataset.features = dataset.features.to(device=self.device, dtype=self.xtype)
+            dataset.labels = dataset.labels.to(device=self.device, dtype=self.ytype)
+            print("dataset migrated to", self.device, self.xtype, self.ytype)
+        except AttributeError:
+            # raise a Warning("Not using a conventional dataset derived from utils.data.Dataset")
+            print("AttributeError occured")
+            pass
         default_dataloader_args = dict(
             {
                 "dataset": dataset,
@@ -140,10 +153,10 @@ class Trainer:
                 "pin_memory": True if torch.cuda.is_available() else False,
                 "batch_size": batch_size if train_mode else dataset.__len__(),
                 "num_workers": max(
-                    os.cpu_count() // torch.cuda.device_count()
+                    0
                     if torch.cuda.is_available()
                     else os.cpu_count(),
-                    1,
+                    0,
                 ),
             }
         )
@@ -190,7 +203,6 @@ class Trainer:
             valid_metrics = None
             self._valid_dataloader = None
 
-        
         self._run_training(
                 num_epochs=num_epochs,
                 train_dataloader=self._train_dataloader,
@@ -272,7 +284,7 @@ class Trainer:
             )
 
             if valid_dataloader is not None:
-                self._run_valid_epoch(
+                self._run_evaluate(
                     valid_dataloader,
                     valid_metrics,
                     callbacks,
