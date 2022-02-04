@@ -2,28 +2,31 @@
 
 import torch
 import torch.nn as nn
+from .utils import _add_modules, _add_last_layer
 
-class FullyConnectedBlock(nn.Module):
-    def __init__(self, *argv, init_weight=None, activation=nn.ReLU(), **kwargs):
-        assert len(argv) > 1
-        super(FullyConnectedBlock, self).__init__()
 
-        layers = []
-        for i in range(len(argv) - 2):
-            fc_layer = nn.Linear(argv[i], argv[i+1])
+class Perceptron(torch.nn.Sequential):
+    def __init__(self, in_channels, out_channels, *args, epiloques={}, proloques={}, **kwargs):
+        super(Perceptron, self).__init__()
+        _add_modules(self, proloques)
+        self.add_module('hidden', nn.Linear(in_channels, out_channels))
+        _add_modules(self, epiloques)
 
-            if init_weight is not None:
-                init_weight(fc_layer.weight)
 
-            layers.append(nn.Sequential(
-                fc_layer,
-                nn.BatchNorm1d(argv[i+1]),
-                activation)
-            )
+class FeedForward(torch.nn.Sequential):
+    def __init__(self, *layers, activation=nn.ReLU(), norm=False, output=None, output_args=[], output_kwargs={}, **kwargs):
+        assert len(layers) >= 2
+        super(FeedForward, self).__init__()
 
-        output_layer = nn.Linear(argv[-2], argv[-1])
-        self.seq = nn.Sequential(*layers, output_layer)
+        for i in range(1, len(layers) - 1):
+            epiloques = {'relu': activation}
+            fc_layer = nn.Linear(layers[i-1], layers[i])
+            self.add_module(f'hidden{i}', fc_layer)
+            if norm:
+                self.add_module(f'bnorm{i}', nn.BatchNorm1d(layers[i]))            
+            if activation is not None:
+                self.add_module(f'relu{i}', activation)
 
-    def forward(self, x):
-        return self.seq(x)
+        self.add_module('output', nn.Linear(layers[-2], layers[-1]))
+        _add_last_layer(self, output, (None, 'dropout', 'sigmoid'), *output_args, **output_kwargs)
 
