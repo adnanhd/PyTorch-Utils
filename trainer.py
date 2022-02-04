@@ -7,8 +7,7 @@ from .callbacks import (
     CallbackHandler,
     CallbackMethodNotImplementedError,
     TrainerCallback,
-    
-    TrainingError,
+    StopTrainingError,
 )
 
 from typing import List, Dict, Any, Mapping, Optional, Union, Callable, Tuple, Iterable
