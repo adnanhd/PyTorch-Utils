@@ -1,7 +1,7 @@
+#!/usr/bin/env python3
 import pandas as pd
 import os, time
 import torch, math
-from .metrics import loss_to_metric, MetricHandler
 from tqdm import tqdm, trange, utils
 from .callbacks import (
     CallbackHandler,
@@ -10,7 +10,18 @@ from .callbacks import (
     StopTrainingError,
 )
 
-from typing import List, Dict, Any, Mapping, Optional, Union, Callable, Tuple, Iterable
+from .metrics import loss_to_metric, MetricHandler
+from typing import (
+    List, 
+    Dict, 
+    Any, 
+    Mapping, 
+    Optional, 
+    Union, 
+    Callable, 
+    Tuple, 
+    Iterable
+)
 
 
 def makedirs(path, verbose=False):
@@ -138,32 +149,22 @@ class Trainer:
         **kwargs,
     ) -> torch.utils.data.DataLoader:
         assert isinstance(dataset, torch.utils.data.Dataset), """type(dataset), {} must be a descendant of torch.utils.data.Dataset""".format(type(dataset))
+        
         try:
             dataset.features = dataset.features.to(device=self.device, dtype=self.xtype)
             dataset.labels = dataset.labels.to(device=self.device, dtype=self.ytype)
-            print("dataset migrated to", self.device, self.xtype, self.ytype)
         except AttributeError:
             # raise a Warning("Not using a conventional dataset derived from utils.data.Dataset")
             print("AttributeError occured")
             pass
-        default_dataloader_args = dict(
-            {
-                "dataset": dataset,
-                "shuffle": train_mode,
-                "pin_memory": True if torch.cuda.is_available() else False,
-                "batch_size": batch_size if train_mode else dataset.__len__(),
-                "num_workers": max(
-                    0
-                    if torch.cuda.is_available()
-                    else os.cpu_count(),
-                    0,
-                ),
-            }
-        )
 
-        default_dataloader_args.update(kwargs)
+        kwargs.setdefault('shuffle', train_mode)
+        kwargs.setdefault('pin_memory', not torch.cuda.is_available())
+        kwargs.setdefault('num_workers', 0 if torch.cuda.is_available() else os.cpu_count())
+        if train_mode or batch_size is None:
+            batch_size = dataset.__len__()
 
-        return torch.utils.data.DataLoader(**default_dataloader_args)
+        return torch.utils.data.DataLoader(dataset, **kwargs)
 
     def train(
         self,
@@ -217,9 +218,6 @@ class Trainer:
             return train_metrics, valid_metrics
         else:
             return train_metrics
-        """ pd.concat(
-            (train_df.add_prefix("train_"), valid_df.add_prefix("valid_")), axis=1
-        ) """
 
     def evaluate(
         self,
@@ -247,8 +245,6 @@ class Trainer:
         eval_metrics = MetricHandler(
             "test", metrics=metrics, index=range(eval_dataloader.__len__())
         )
-
-        self.model.eval()
 
         self._run_evaluate(
             eval_loader=eval_dataloader,
