@@ -5,8 +5,10 @@ import torch
 import numpy as np
 import os.path as osp
 from tqdm import tqdm
+import warnings
 import matplotlib.pyplot as plt
 from .utils import generate_dataset
+warnings.warn(f'<{__name__}> module is depricated in future versions', FutureWarning)
 
 
 class Sample:

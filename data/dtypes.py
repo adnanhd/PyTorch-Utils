@@ -3,6 +3,7 @@ import torch
 import hashlib
 import scipy.io
 import numpy as np
+import warnings
 from copy import deepcopy
 import matplotlib.pyplot as plt
 from .utils import encoder_lambda
@@ -158,6 +159,7 @@ class Bezier(Datum):
 
 
 class FlowField(Datum):
+    warnings.warn('utils.data.dtypes.FlowField is depricated in future versions', FutureWarning)
     shape = (1, 256, 256)           
     linspace = None
     suffix = '_flowfield.mat'
@@ -199,6 +201,7 @@ class FlowField(Datum):
         return fig, axes
 
 class DistFunc(Datum):
+    warnings.warn('utils.data.dtypes.DistFunc is depricated in future versions', FutureWarning)
     shape = (1, 256, 256)
     linspace = None
     suffix = '_distFunc.mat'

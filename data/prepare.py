@@ -11,6 +11,8 @@ from .sample import StoredSample
 #from airfoils import Airfoil
 import matplotlib.pyplot as plt
 from scipy.interpolate import interp1d
+import warnings
+warnings.warn(f'<{__name__}> module is depricated in future versions', FutureWarning)
 
 
 class CrudeDatum:
