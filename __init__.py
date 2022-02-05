@@ -86,17 +86,19 @@ class Pipeline(object):
         self.generator(df)
         return df
 
-    def test(self, test_dataset, callbacks=[], **kwargs):
+    def test(self, test_dataset, callbacks=[], metrics={}, **kwargs):
         fig = utils.generators.FigureGenerator(1, project=self.project)
 
         test_loader = test_dataset.dataloader(
             batch_size=1, train=False,
             num_workers=self.hparams.num_workers)
-
+        
+        test_metrics = self.metrics.copy()
+        test_metrics.update(metrics)
         df = self.trainer.evaluate(
                 test_dataset=test_loader,
                 callbacks=callbacks,
-                metrics=self.metrics,
+                metrics=test_metrics,
                 **self.hparams.evaluate, **kwargs)  # print and save logs
 
         fig[0] = utils.generators.FigureGenerator.Histogram(df)
