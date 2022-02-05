@@ -69,10 +69,11 @@ class ModelCheckpoint(Callback):
     from copy import deepcopy
     """Early stops the training if validation loss doesn't improve after a given patience."""
 
-    def __init__(self, monitor='valid_loss', verbose=False, save_max=False, save_model=False, step_size=10):
+    def __init__(self, monitor='valid_loss', verbose=False, save_max=False, save_model=False, step_size=10, load_back_n=None):
         self.monitor = monitor
         self.best_weights = None
         self.max = save_max
+        self.load_back_n = load_back_n
         self.save_model = save_model
         self.verbose = verbose
         self.step_size = step_size
@@ -87,6 +88,8 @@ class ModelCheckpoint(Callback):
                 self.best_weights = (trainer.model.state_dict())   # parantez dışı self.deepcopy
                 if self.verbose:
                     print("best model is saved...")
+        if epoch % self.load_back_n == 0:
+            trainer.model.save_state_dict(self.best_weights)
 
     def on_training_end(self, trainer,epoch, **kwargs):
         if self.best_weights is not None:
