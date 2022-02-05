@@ -52,8 +52,8 @@ class Dataset(torch.utils.data.dataset.Dataset):
                 label_func=self.label_func)
     
     def leave(self, index):
-        warning.warn('This method is renamed as split in the future versions', FutureWarning)
-        self.split(index)
+        warnings.warn('This method is renamed as split in the future versions', FutureWarning)
+        return self.split(index)
 
     def split(self, index):
         if isinstance(index, float):
