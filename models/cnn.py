@@ -52,10 +52,10 @@ class Decoder(torch.nn.Sequential):
         self.add_module(f'output', nn.ConvTranspose2d(layers[-2], layers[-1], kernel_size, **kwargs))
 
 
-def Convolution(*layers, kernel_size, **kwargs):
+def Convolution(*layers, kernel_size, multiple=4*4, **kwargs):
     last_layer = nn.Sequential(
             nn.Flatten(),
-            nn.Linear(layers[-2], layers[-1]),
+            nn.Linear(layers[-2] * multiple, layers[-1]),
             nn.Sigmoid()
     )
     return Encoder(*layers[:-1], kernel_size=kernel_size, output=last_layer, **kwargs)
