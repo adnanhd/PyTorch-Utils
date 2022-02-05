@@ -35,7 +35,8 @@ def generate_dataset(*datum_classes, filepath=None):
             for child in os.listdir(os.path.join(filepath, parent)))
     
     for index, datum_folder in enumerate(os.listdir(filepath)):
-        if all(map(lambda datum_class: contains(datum_folder, datum_class.suffix), datum_classes)):
+        if os.path.isdir(os.path.join(filepath, datum_folder)) \
+                and all(map(lambda datum_class: contains(datum_folder, datum_class.suffix), datum_classes)):
             print(index, datum_folder)
             yield datum_folder
             
