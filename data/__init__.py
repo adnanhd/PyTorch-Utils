@@ -2,10 +2,8 @@
 
 import utils.data.dataset
 import utils.data.dtypes
-import utils.data.prepare
-import utils.data.sample
+import utils.data.preprocessing
+import utils.data.utils
 
 from .dtypes import Datum
-from .sample import StoredSample, Sample
 from .dataset import Dataset
-from .prepare import CrudeDatum as Prepare

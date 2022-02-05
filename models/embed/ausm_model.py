@@ -166,7 +166,6 @@ class CFD_CNN(nn.Module):
         d7 = self.activation(d7)
         
         d8 = self.deconv_8(d7)  ## 256x256, NC
-        d8 = self.activation(d8)
         
         return d8
 
