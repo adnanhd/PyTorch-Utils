@@ -55,11 +55,24 @@ class Dataset(torch.utils.data.dataset.Dataset):
         warnings.warn('This method is renamed as split in the future versions', FutureWarning)
         return self.split(index)
 
-    def split(self, index):
+    def split(self, index, shuffle = False):
         if isinstance(index, float):
             index = int(self.__len__() * index)
-        other = self.take(index)
-        self.skip(index)
+        
+        try:
+            from sklearn.model_selection import train_test_split
+            data = train_test_split(features, labels, test_size=index, shuffle=shuffle)
+            self.features = data[0]
+            self.labels = data[1]
+        
+            other = self.take(0)
+            other.features = data[2]
+            other.labels = data[3]
+        except ImportError:
+            warnings.warn("sklearn.model_selection could not imported, therefore shuffle feature is not available", ImportWarning)
+            other = self.take(index)
+            self.skip(index)
+
         return other
 
     def map(self, feature_func=None, label_func=None):
