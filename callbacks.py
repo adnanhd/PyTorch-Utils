@@ -88,7 +88,7 @@ class ModelCheckpoint(Callback):
                 self.best_weights = (trainer.model.state_dict())   # parantez dışı self.deepcopy
                 if self.verbose:
                     print("best model is saved...")
-        if epoch % self.load_back_n == 0:
+        if isinstance(self.load_back_n, int) and epoch % self.load_back_n == 0:
             trainer.model.save_state_dict(self.best_weights)
 
     def on_training_end(self, trainer,epoch, **kwargs):
