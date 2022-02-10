@@ -1,5 +1,10 @@
+import imp
 import os
 import math
+import utils
+import utils.data
+
+from importlib_metadata import version
 import torch
 import hashlib
 import numpy as np
@@ -7,6 +12,9 @@ import matplotlib.pyplot as plt
 from .dtypes import Datum
 from .sample import StoredSample, Sample
 from .utils import Constants, generate_dataset
+
+__version__ = '1.0.a'
+
 
 class Dataset(torch.utils.data.dataset.Dataset):
     def __init__(self, features, labels, transform=None, feature_func=None, label_func=None):
@@ -21,22 +29,22 @@ class Dataset(torch.utils.data.dataset.Dataset):
 
     def __getitem__(self, index):
         feature = self.features[index]
-        label   = self.labels[index]
+        label = self.labels[index]
 
         if isinstance(feature, Datum):
             feture = feature.data
         if isinstance(label, Datum):
-            label  = label.data
+            label = label.data
 
         if self.feature_func:
             feature = self.feature_func(feature)
 
         if self.label_func:
             label = self.label_func(label)
-        
+
         if self.transform:
             feature = self.transform(feature)
-        
+
         return feature, label
 
     def skip(self, index):
@@ -47,12 +55,12 @@ class Dataset(torch.utils.data.dataset.Dataset):
         if not end:
             end = start
             start = 0
-        return Dataset(features=self.features[start:end], 
-                labels=self.labels[start:end], 
-                transform=self.transform,
-                feature_func=self.feature_func,
-                label_func=self.label_func)
-    
+        return Dataset(features=self.features[start:end],
+                       labels=self.labels[start:end],
+                       transform=self.transform,
+                       feature_func=self.feature_func,
+                       label_func=self.label_func)
+
     def leave(self, index):
         if isinstance(index, float):
             index = int(self.__len__() * index)
@@ -91,42 +99,21 @@ class Dataset(torch.utils.data.dataset.Dataset):
                                            batch_size=batch_size,
                                            num_workers=num_workers)
 
+    @classmethod
+    def load_from(cls, path):
+        data = torch.load(path)
+        return cls(features=data['features'], labels=data['labels'])
+
+    def load(self, path):
+        data = torch.load(path)
+        self.labels = data['labels']
+        self.features = data['features']
+
+    def save(self, path):
+        torch.save({'features': self.features, 'labels': self.labels,
+                    'utils.__version__': utils.__version__,
+                    'utils.data.__version__': utils.data.__version__,
+                    'utils.data.dataset.__version__': __version__, }, path)
+
     def __repr__(self):
         return f"<Dataset: {self.__len__()} samples>(features: {self.features.shape}, labels: {self.labels.shape})"
-
-"""
-    @classmethod
-    def from_preloaded(cls, feature_class, label_class, 
-            transform=None, feature_func=None, label_func=None, 
-            path=Constants.preloaded_dataset_path, cache=True):
-        
-        try:
-            import tqdm
-        except ImportError:
-            iterator = range
-        else:
-            iterator = tqdm.tqdm
-
-        cache_filepath = hex(int(label_class.hash(), 16) ^ int(feature_class.hash(), 16))[2:]
-        cache_filepath = os.path.join(path, cache_filepath)
-
-        if os.path.isfile(cache_filepath):
-            cache = torch.load(cache_filepath)
-            features, labels = cache['features'], cache['labels']
-        else:
-            datapath = list(generate_dataset(feature_class, label_class, filepath=path))
-            
-            features = torch.empty(torch.Size([len(datapath)]) + torch.Size(feature_class.shape))
-            labels = torch.empty(torch.Size([len(datapath)]) + torch.Size(label_class.shape))
-            
-            for i, datum_name in enumerate(iterator(datapath)):
-                features[i] = feature_class.load(path, datum_name).data
-                labels[i] = label_class.load(path, datum_name).data
-            
-            if cache:
-                torch.save({'features': features, 'labels': labels}, cache_filepath)
-
-        return cls(features, labels, transform, feature_func, label_func)
-"""
-
-
