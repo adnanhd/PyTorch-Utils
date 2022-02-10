@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
+from curses import KEY_A1
 import pandas as pd
 import os, time
+from ..metrics import TrainerMetric
 import torch, math
 from tqdm import tqdm, trange, utils
 from utils.callbacks import (
@@ -12,8 +14,9 @@ from utils.callbacks import (
 
 import warnings
 from utils.metrics import loss_to_metric, MetricHandler
-from .train import _run_training, _run_training_epoch, _run_training_step
-from .valid import _run_validating, _run_validating_step
+from .train import _run_training
+from .valid import _run_validating
+from .eval import _run_evaluating
 
 from typing import (
     List, 
@@ -68,7 +71,7 @@ class Trainer:
         self.optimizer = optim
         self.scheduler = sched
 
-        self.metrics = MetricHandler()
+        self.metrics = TrainerMetric()
         #self.loggers = LoggerHandler()
         self.callbacks = CallbackHandler()
 
@@ -170,7 +173,8 @@ class Trainer:
         loggers=None,
         callbacks=None,
     ) -> None:
-        pass
+        if metrics is not None:
+            self.metrics = TrainerMetric(metrics=metrics, dtype=self.ytype, device=self.device)
 
     def train(
         self,
@@ -184,8 +188,6 @@ class Trainer:
     ):
         self.callbacks.add_callbacks(callbacks)
         self.model = self._prepare(self.model)
-        self.metrics.init(batch_size=batch_size, 
-                dtype=self.ytype, device=self.device)
 
         _train_dataloader = self.create_dataloader(
             dataset=train_dataset,
@@ -214,23 +216,23 @@ class Trainer:
         
     def evaluate(
         self,
-        test_dataset,
-        test_dataloader_kwargs={},
+        dataset,
+        dataloader_kwargs={},
         callbacks: List[TrainerCallback] = [],
         **kwargs,
     ):
         self.callbacks.add_callbacks(callbacks)
         eval_dataloader = self.create_dataloader(
-            dataset=test_dataset,
+            dataset=dataset,
             train_mode=False,
-            batch_size=test_dataset.__len__(),
-            **test_dataloader_kwargs,
+            batch_size=dataset.__len__(),
+            **dataloader_kwargs,
         )
 
-        _run_evaluate(self, eval_dataloader)
+        _run_evaluating(self, eval_dataloader, **kwargs)
         self.callbacks.remove_callbacks(callbacks)
+        return self.metrics.updated_values()
 
-    def __handle__(self, event, epoch=None, batch=None, **kwargs):
-        #self.loggers.call_event(event)
+    def __handle__(self, event, **kwargs):
         self.callbacks.call_event(self, event, **kwargs)
 

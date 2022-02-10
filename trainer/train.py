@@ -1,10 +1,5 @@
 #!/usr/bin/env python3
-import pandas as pd
-import os
-import time
 import torch
-import math
-from tqdm import tqdm, trange, utils
 from .valid import _run_validating
 from .utils import profile
 from typing import (
@@ -35,24 +30,35 @@ def _run_training(
     **kwargs,
 ):
     _UNROLLING_N = 8
-    trainer.__handle__("on_training_begin",
-                       num_epochs=num_epochs,
-                       batch_size=train_loader.batch_size,
-                       step_size=train_loader.__len__())
+    trainer.__handle__(
+        "on_training_begin",
+        num_epochs=num_epochs,
+        batch_size=train_loader.batch_size,
+        step_size=train_loader.__len__()
+    )
 
     try:
         for epoch in range(0, num_epochs - _UNROLLING_N + 1, _UNROLLING_N):
-            _run_training_epoch(trainer, epoch+0, train_loader, valid_loader, **kwargs)
-            _run_training_epoch(trainer, epoch+1, train_loader, valid_loader, **kwargs)
-            _run_training_epoch(trainer, epoch+2, train_loader, valid_loader, **kwargs)
-            _run_training_epoch(trainer, epoch+3, train_loader, valid_loader, **kwargs)
-            _run_training_epoch(trainer, epoch+4, train_loader, valid_loader, **kwargs)
-            _run_training_epoch(trainer, epoch+5, train_loader, valid_loader, **kwargs)
-            _run_training_epoch(trainer, epoch+6, train_loader, valid_loader, **kwargs)
-            _run_training_epoch(trainer, epoch+7, train_loader, valid_loader, **kwargs)
+            _run_training_epoch(
+                trainer, epoch+0, train_loader, valid_loader, **kwargs)
+            _run_training_epoch(
+                trainer, epoch+1, train_loader, valid_loader, **kwargs)
+            _run_training_epoch(
+                trainer, epoch+2, train_loader, valid_loader, **kwargs)
+            _run_training_epoch(
+                trainer, epoch+3, train_loader, valid_loader, **kwargs)
+            _run_training_epoch(
+                trainer, epoch+4, train_loader, valid_loader, **kwargs)
+            _run_training_epoch(
+                trainer, epoch+5, train_loader, valid_loader, **kwargs)
+            _run_training_epoch(
+                trainer, epoch+6, train_loader, valid_loader, **kwargs)
+            _run_training_epoch(
+                trainer, epoch+7, train_loader, valid_loader, **kwargs)
 
         for epoch in range((num_epochs // _UNROLLING_N) * _UNROLLING_N, num_epochs):
-            _run_training_epoch(trainer, epoch, train_loader, valid_loader, **kwargs)
+            _run_training_epoch(trainer, epoch, train_loader,
+                                valid_loader, **kwargs)
     except StopTrainingError:
         trainer.__handle__("on_stop_training_error")
 
@@ -67,7 +73,11 @@ def _run_training_epoch(
     valid_loader: Optional[torch.utils.data.DataLoader] = None,
     **kwargs,
 ) -> torch.Tensor:
-    trainer.metrics.init()
+    trainer.metrics.init(
+        epoch=epoch,
+        batch_size=train_loader.batch_size,
+        step_size=train_loader.__len__()
+    )
     trainer.__handle__("on_training_epoch_begin", epoch=epoch)
 
     trainer.model.train()
@@ -78,7 +88,7 @@ def _run_training_epoch(
             y=y_truth.to(device=trainer.device, dtype=trainer.ytype),
         )
 
-    trainer.metrics.update()
+    trainer.metrics.update(epoch)
     trainer.__handle__("on_training_epoch_end", epoch=epoch,
                        **trainer.metrics.updated_values(epoch))
 
@@ -91,8 +101,6 @@ def _run_training_epoch(
 
     trainer.__handle__("on_training_valid_end", epoch=epoch)
 
-# @profile
-
 
 def _run_training_step(
     trainer,
@@ -102,7 +110,9 @@ def _run_training_step(
     y: torch.Tensor,
     **kwargs,
 ) -> torch.Tensor:
-    trainer.__handle__("on_training_step_begin", batch=batch_idx)
+    trainer.__handle__("on_training_step_begin",
+                       epoch=epoch,
+                       batch=batch_idx)
 
     trainer.optimizer.zero_grad()
 
@@ -118,8 +128,9 @@ def _run_training_step(
         y_pred=y_pred.detach(),
     )
 
-    trainer.metrics.step()
     trainer.__handle__("on_training_step_end",
-                       batch=batch_idx, 
+                       epoch=epoch, 
+                       batch=batch_idx,
+                       loss=loss.detach(),
                        batch_output=y_pred.detach(),
                        **trainer.metrics.stepped_values(batch_idx))

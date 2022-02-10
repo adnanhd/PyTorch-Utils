@@ -15,7 +15,7 @@ from typing import (
 
 
 @profile
-def _run_validating(
+def _run_evaluating(
     trainer,
     loader: torch.utils.data.DataLoader,
     *args,
@@ -23,7 +23,7 @@ def _run_validating(
 ) -> torch.Tensor:
     trainer.metrics.reset()
     trainer.__handle__(
-        "on_validation_run_begin",
+        "on_evaluation_run_begin",
         batch_size=loader.batch_size,
         step_size=loader.__len__()
     )
@@ -31,7 +31,7 @@ def _run_validating(
     trainer.model.eval()
     with torch.no_grad():
         for batch, (features, y_true) in enumerate(loader):
-            _run_validating_step(
+            _run_evaluating_step(
                 trainer=trainer, batch_idx=batch, *args, **kwargs,
                 x=features.to(device=trainer.device, dtype=trainer.xtype),
                 y=y_true.to(device=trainer.device, dtype=trainer.ytype),
@@ -39,19 +39,19 @@ def _run_validating(
 
     trainer.metrics.update()
     trainer.__handle__(
-        "on_validation_run_end",
+        "on_evaluation_run_end",
         last_batch=batch
     )
 
 
-def _run_validating_step(
+def _run_evaluating_step(
     trainer,
     batch_idx: int,
     x: torch.Tensor,
     y: torch.Tensor,
     **kwargs,
 ):
-    trainer.__handle__("on_validation_step_begin", step=batch_idx)
+    trainer.__handle__("on_evaluation_step_begin", step=batch_idx)
 
     y_pred = trainer.model(x)
     loss = trainer.criterion(y_pred, y)
@@ -62,7 +62,7 @@ def _run_validating_step(
         y_pred=y_pred.detach(),
     )
 
-    trainer.__handle__("on_validation_step_end",
+    trainer.__handle__("on_evaluation_step_end",
                        batch=batch_idx,
                        loss=loss.detach(),
                        batch_output=y_pred.detach(),

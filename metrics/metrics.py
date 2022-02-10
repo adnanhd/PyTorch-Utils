@@ -1,3 +1,5 @@
+from lib2to3.pgen2.token import OP
+from optparse import Option
 import torch
 import numpy as np
 import pandas as pd
@@ -6,7 +8,7 @@ from typing import List, Dict, Any, Mapping, Optional, Union, Callable, Tuple, I
 from .handler.events import on_initialization, on_run_begin, on_run_end, on_step_begin, on_step_end
 
 
-class __TrainerMetric(ABC):
+class TrainerMetric(ABC):
 
     def __init__(self,
                  metrics: Mapping[str, Callable[[
@@ -22,7 +24,9 @@ class __TrainerMetric(ABC):
 
     # @on_run_begin
     def init(self,
-             batch_size: int,
+             step_size: int,
+             epoch: int = None,
+             batch_size: int = None,
              **kwargs,
              ) -> None:
         if self.dtype is not None:
@@ -31,7 +35,7 @@ class __TrainerMetric(ABC):
             kwargs.setdefault('device', self.device)
 
         self.loss_list = torch.empty(
-            batch_size, self.metrics.__len__(), **kwargs,
+            step_size, self.metrics.__len__(), **kwargs,
         )
 
     # @on_epoch_begin
@@ -39,8 +43,12 @@ class __TrainerMetric(ABC):
         self.loss_list.zero_()
 
     # @on_epoch_end
-    def update(self, epoch: int = None, *args, **kwargs):
-        pass
+    def update(self,
+               index: Optional[int] = None,
+               logger=None,
+               *args, **kwargs):
+        if logger is not None:
+            logger.log(**self.updated_values())
 
     # @on_step_end
     def step(
@@ -61,7 +69,7 @@ class __TrainerMetric(ABC):
     def stepped_values(self, batch_idx: int) -> Mapping[str, torch.tensor]:
         return dict(zip(self.metrics.keys(), self.loss_list[batch_idx, :]))
 
-    def updated_values(self, epoch: int, prefix: Optional[str] = None) -> Mapping[str, torch.Tensor]:
+    def updated_values(self, *args, **kwargs) -> Mapping[str, torch.Tensor]:
         return dict(zip(self.metrics.keys(), self.loss_list.mean(0)))
 
     def save(self):
@@ -69,11 +77,13 @@ class __TrainerMetric(ABC):
             f.write("\n".join(self.logs))
 
 
-def TrainerMetric(*args, **kwargs):
-    metric = __TrainerMetric(*args, **kwargs)
-    on_initialization(metric.init)
-    on_run_begin(metric.reset)
-    on_run_end(metric.update)
-    # on_step_begin()
-    on_step_end(metric.step)
-    return metric
+def HookerClass(cls):
+    def hooked_class(*args, **kwargs):
+        obj = cls(*args, **kwargs)
+        on_initialization(obj.init)
+        on_run_begin(obj.reset)
+        on_run_end(obj.update)
+        # on_step_begin()
+        on_step_end(obj.step)
+        return obj
+    return hooked_class

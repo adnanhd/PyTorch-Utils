@@ -10,6 +10,8 @@ import torch
 from torch import nn
 from tqdm import tqdm
 
+from .base import CallbackMethodNotImplementedError
+
 
 class CallbackHandler:
     """
@@ -42,7 +44,7 @@ class CallbackHandler:
                 f"You attempted to remove absensces of the callback {cb_class} to a single Trainer"
                 f" The list of callbacks already present is\n: {self.callback_list}"
             )
-        self.callbacks.remove(cb)
+        self.callbacks.remove(callback)
 
     def add_callbacks(self, callbacks):
         """
@@ -79,7 +81,7 @@ class CallbackHandler:
     def __repr__(self):
         return self.callback_list
 
-    def call_event(self, event, *args, **kwargs):
+    def call_event(self, trainer, event, *args, **kwargs):
         """
         For each callback which has been registered, sequentially call the method corresponding to the
         given event.
@@ -89,7 +91,7 @@ class CallbackHandler:
         """
         for callback in self.callbacks:
             try:
-                getattr(callback, event)(*args, **kwargs)
+                callback.__getattribute__(event)(trainer=trainer, *args, **kwargs)
             except CallbackMethodNotImplementedError as e:
                 continue
 
