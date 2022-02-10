@@ -1,43 +1,43 @@
 #!/usr/bin/env python3
 from .dataset import Dataset
 
-def l1_norm(arr):
-    nsum = arr.sum()
-    arr /= nsum
+def l1_norm(arr, dim=None, shape=-1):
+    nsum = arr.sum(dim)
+    arr /= nsum.reshape(shape)
     return nsum
 
-def l1_denorm(arr, key):
-    arr *= key
+def l1_denorm(arr, key, shape=-1):
+    arr *= key.reshape(shape)
     
 
-def mean_std_norm(arr):
-    nmean = arr.mean()
-    nstd = arr.std()
+def mean_std_norm(arr, dim=None, shape=-1):
+    nmean = arr.mean(dim)
+    nstd = arr.std(dim)
     
-    arr -= nmean
-    arr /= nstd
+    arr -= nmean.reshape(shape)
+    arr /= nstd.reshape(shape)
     
     return nmean, nstd
 
-def mean_std_denorm(arr, key):
+def mean_std_denorm(arr, key, shape=-1):
     nmean, nstd = key
     
-    arr *= nstd
-    arr += nmean
+    arr *= nstd.reshape(shape)
+    arr += nmean.reshape(shape)
     
 
-def min_max_norm(arr):
-    nmin = arr.min()
-    nmax = arr.max()
+def min_max_norm(arr, dim=None, shape=-1):
+    nmin = arr.min(dim)
+    nmax = arr.max(dim)
     
-    arr -= nmin
-    arr /= nmax - nmin
+    arr -= nmin.reshape(shape)
+    arr /= (nmax - nmin).reshape(shape)
     
     return nmin, nmax
 
-def min_max_denorm(arr, key):
+def min_max_denorm(arr, key, shape=-1):
     nmin, nmax = key
     
-    arr *= nmax - nmin
-    arr += nmin
+    arr *= (nmax - nmin).reshape(shape)
+    arr += nmin.reshape(shape)
 

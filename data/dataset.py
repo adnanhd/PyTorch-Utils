@@ -61,12 +61,12 @@ class Dataset(torch.utils.data.dataset.Dataset):
         
         try:
             from sklearn.model_selection import train_test_split
-            data = train_test_split(features, labels, test_size=index, shuffle=shuffle)
+            data = train_test_split(self.features, self.labels, test_size=index, shuffle=shuffle)
             self.features = data[0]
-            self.labels = data[1]
+            self.labels = data[2]
         
             other = self.take(0)
-            other.features = data[2]
+            other.features = data[1]
             other.labels = data[3]
         except ImportError:
             warnings.warn("sklearn.model_selection could not imported, therefore shuffle feature is not available", ImportWarning)
