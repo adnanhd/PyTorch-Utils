@@ -12,17 +12,3 @@ def one_hot_decode(score):
         return score(y_pred=y_pred.argmax(axis=1), y_true=y_true.argmax(axis=1))
 
     return decoded_score
-
-
-def on_run_begin(fn):
-    return fn
-
-def on_epoch_begin(fn):
-    return fn
-
-def on_epoch_end(fn):
-    return fn
-
-def on_step_end(fn):
-    return fn
-

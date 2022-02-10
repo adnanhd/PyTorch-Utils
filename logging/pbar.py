@@ -1,8 +1,8 @@
-from utils.callbacks import TrainerCallback
+from .handler import TrainerLogger
 from tqdm import tqdm
+import time
 
-
-class ProgressBar(TrainerCallback):
+class ProgressBar(TrainerLogger):
     """
     A callback which visualises the state of each training and evaluation epoch using a progress bar
     """
@@ -11,8 +11,9 @@ class ProgressBar(TrainerCallback):
         self.pbar = None
         self._total_size = None
         self._delay = delay
+        self.varbose = False
 
-    def on_train_run_begin(self, batch_size, **kwargs):
+    def on_training_begin(self, batch_size, **kwargs):
         self._train_batch_size = batch_size
 
     def on_train_epoch_begin(self, **kwargs):
@@ -27,6 +28,14 @@ class ProgressBar(TrainerCallback):
             colour="GREEN",
         )
 
+    def on_train_step_end(self, trainer, **kwargs):
+        self.pbar.set_postfix(**kwargs)
+        self.pbar.update(1)
+
+    def on_train_epoch_end(self, trainer, **kwargs):
+        self.pbar.close()
+        time.sleep(self._delay)
+
     def on_eval_epoch_begin(self, trainer, epoch, **kwargs):
         self.pbar = tqdm(
                 total=self._total_size,
@@ -37,13 +46,6 @@ class ProgressBar(TrainerCallback):
                 colour="GREEN",
                 postfix=metrics,
         )
-
-    def on_train_step_end(self, trainer, **kwargs):
-        self.pbar.update(1)
-
-    def on_train_epoch_end(self, trainer, **kwargs):
-        self.pbar.close()
-        time.sleep(self._delay)
 
     def on_eval_epoch_begin(self, trainer, **kwargs):
         self.pbar = tqdm(
@@ -60,7 +62,7 @@ class ProgressBar(TrainerCallback):
     def on_eval_epoch_end(self, trainer, **kwargs):
         self.pbar.close()
         time.sleep(self._delay)
-        if verbose:
+        if self.verbose:
             df = pd.DataFrame(
                 (train_df.iloc[epoch], valid_df.iloc[epoch]),
                 columns=metrics.keys(),

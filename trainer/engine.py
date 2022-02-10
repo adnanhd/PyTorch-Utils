@@ -231,5 +231,6 @@ class Trainer:
         self.callbacks.remove_callbacks(callbacks)
 
     def __handle__(self, event, epoch=None, batch=None, **kwargs):
-        self.callbacks.call_event(event)
+        #self.loggers.call_event(event)
+        self.callbacks.call_event(self, event, **kwargs)
 

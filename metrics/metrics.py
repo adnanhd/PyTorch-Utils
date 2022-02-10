@@ -1,221 +1,79 @@
 import torch
 import numpy as np
 import pandas as pd
-from utils.callbacks import (
-    CallbackHandler,
-    CallbackMethodNotImplementedError,
-    TrainerCallback,
-    StopTrainingError,
-)
-
+from abc import ABC, abstractmethod
 from typing import List, Dict, Any, Mapping, Optional, Union, Callable, Tuple, Iterable
+from .handler.events import on_initialization, on_run_begin, on_run_end, on_step_begin, on_step_end
 
 
-def loss_to_metric(loss):
-    def metric(y_true, y_pred):
-        return loss(input=y_pred, target=y_true)
+class __TrainerMetric(ABC):
 
-    return metric
-
-
-def one_hot_decode(score):
-    def decoded_score(y_pred, y_true):
-        return score(y_pred=y_pred.argmax(axis=1), y_true=y_true.argmax(axis=1))
-
-    return decoded_score
-
-
-class MetricHandler(TrainerCallback):
-    def __init__(
-        self,
-        path: str,
-        metrics: Mapping[str, Callable[[torch.Tensor, torch.Tensor], float]],
-        verbose: bool = False,
-        index: Optional[Iterable] = None,
-    ):
-        self.path = path
-        self.verbose = verbose
+    def __init__(self,
+                 metrics: Mapping[str, Callable[[
+                     torch.Tensor, torch.Tensor], float]] = dict(),
+                 loss_list=None,
+                 device: Optional[torch.device] = None,
+                 dtype: Optional[torch.dtype] = None
+                 ):
         self.metrics = metrics
-        self.loss_list = None
-        self._dataframe = pd.DataFrame(columns=metrics.keys(), index=index)
+        self.loss_list = loss_list
+        self.device = device
+        self.dtype = dtype
 
-    # on_train_epoch_begin
-    def reset(self, trainer: "Trainer"):
+    # @on_run_begin
+    def init(self,
+             batch_size: int,
+             **kwargs,
+             ) -> None:
+        if self.dtype is not None:
+            kwargs.setdefault('dtype', self.dtype)
+        if self.device is not None:
+            kwargs.setdefault('device', self.device)
+
         self.loss_list = torch.empty(
-            trainer._train_dataloader.__len__(),
-            self.metrics.__len__(),
-            dtype=trainer.ytype,
-            device=trainer.device,
+            batch_size, self.metrics.__len__(), **kwargs,
         )
 
-    # on_train_epoch_end
-    def update(self, epoch: int):
-        self._dataframe.loc[epoch] = self.loss_list.mean(axis=0).cpu().numpy()
+    # @on_epoch_begin
+    def reset(self):
+        self.loss_list.zero_()
 
-    # on_train_step_end
+    # @on_epoch_end
+    def update(self, epoch: int = None, *args, **kwargs):
+        pass
+
+    # @on_step_end
     def step(
         self,
         batch_idx: int,
         y_true: torch.Tensor,
         y_pred: torch.Tensor,
-    ) -> Mapping[str, torch.Tensor]:
+        *args,
+        **kwargs,
+    ) -> None:
         self.loss_list[batch_idx, :] = torch.tensor(
             [
                 self.metrics[metric_name](y_true, y_pred)
                 for metric_name in self.metrics.keys()
             ]
         )
+
+    def stepped_values(self, batch_idx: int) -> Mapping[str, torch.tensor]:
         return dict(zip(self.metrics.keys(), self.loss_list[batch_idx, :]))
 
-    # on_train_epoch_end
-    def get(self, metric: str, value: float):
-        idx = self._dataframe.index[self.index]
-        self._dataframe[metric].iloc[idx] = value
+    def updated_values(self, epoch: int, prefix: Optional[str] = None) -> Mapping[str, torch.Tensor]:
+        return dict(zip(self.metrics.keys(), self.loss_list.mean(0)))
 
     def save(self):
         with open(self.path, "w") as f:
             f.write("\n".join(self.logs))
 
 
-def precision_score(
-    y_true: torch.Tensor, y_pred: torch.Tensor, is_training=False
-) -> torch.Tensor:
-    """Calculate F1 score. Can work with gpu tensors
-
-    The original implmentation is written by Michal Haltuf on Kaggle.
-
-    Returns
-    -------
-    torch.Tensor
-        `ndim` == 1. 0 <= val <= 1
-
-    Reference
-    ---------
-    - https://www.kaggle.com/rejpalcz/best-loss-function-for-f1-score-metric
-    - https://scikit-learn.org/stable/modules/generated/sklearn.metrics.f1_score.html#sklearn.metrics.f1_score
-    - https://discuss.pytorch.org/t/calculating-precision-recall-and-f1-score-in-case-of-multi-label-classification/28265/6
-
-    """
-    assert y_true.ndim == 1
-    assert y_pred.ndim == 1 or y_pred.ndim == 2
-
-    if y_pred.ndim == 2:
-        y_pred = y_pred.argmax(dim=1)
-
-    tp = (y_true * y_pred).sum().to(torch.float32)
-    tn = ((1 - y_true) * (1 - y_pred)).sum().to(torch.float32)
-    fp = ((1 - y_true) * y_pred).sum().to(torch.float32)
-    fn = (y_true * (1 - y_pred)).sum().to(torch.float32)
-
-    epsilon = 1e-7
-
-    return tp / (tp + fp + epsilon)
-
-
-def recall_score(
-    y_true: torch.Tensor, y_pred: torch.Tensor, is_training=False
-) -> torch.Tensor:
-    """Calculate F1 score. Can work with gpu tensors
-
-    The original implmentation is written by Michal Haltuf on Kaggle.
-
-    Returns
-    -------
-    torch.Tensor
-        `ndim` == 1. 0 <= val <= 1
-
-    Reference
-    ---------
-    - https://www.kaggle.com/rejpalcz/best-loss-function-for-f1-score-metric
-    - https://scikit-learn.org/stable/modules/generated/sklearn.metrics.f1_score.html#sklearn.metrics.f1_score
-    - https://discuss.pytorch.org/t/calculating-precision-recall-and-f1-score-in-case-of-multi-label-classification/28265/6
-
-    """
-    assert y_true.ndim == 1
-    assert y_pred.ndim == 1 or y_pred.ndim == 2
-
-    if y_pred.ndim == 2:
-        y_pred = y_pred.argmax(dim=1)
-
-    tp = (y_true * y_pred).sum().to(torch.float32)
-    tn = ((1 - y_true) * (1 - y_pred)).sum().to(torch.float32)
-    fp = ((1 - y_true) * y_pred).sum().to(torch.float32)
-    fn = (y_true * (1 - y_pred)).sum().to(torch.float32)
-
-    epsilon = 1e-7
-
-    return tp / (tp + fn + epsilon)
-
-
-def f1_score(
-    y_true: torch.Tensor, y_pred: torch.Tensor, is_training=False
-) -> torch.Tensor:
-    """Calculate F1 score. Can work with gpu tensors
-
-    The original implmentation is written by Michal Haltuf on Kaggle.
-
-    Returns
-    -------
-    torch.Tensor
-        `ndim` == 1. 0 <= val <= 1
-
-    Reference
-    ---------
-    - https://www.kaggle.com/rejpalcz/best-loss-function-for-f1-score-metric
-    - https://scikit-learn.org/stable/modules/generated/sklearn.metrics.f1_score.html#sklearn.metrics.f1_score
-    - https://discuss.pytorch.org/t/calculating-precision-recall-and-f1-score-in-case-of-multi-label-classification/28265/6
-
-    """
-    assert y_true.ndim == 1
-    assert y_pred.ndim == 1 or y_pred.ndim == 2
-
-    if y_pred.ndim == 2:
-        y_pred = y_pred.argmax(dim=1)
-
-    tp = (y_true * y_pred).sum().to(torch.float32)
-    tn = ((1 - y_true) * (1 - y_pred)).sum().to(torch.float32)
-    fp = ((1 - y_true) * y_pred).sum().to(torch.float32)
-    fn = (y_true * (1 - y_pred)).sum().to(torch.float32)
-
-    epsilon = 1e-7
-    precision = precision_score(y_true=y_true, y_pred=y_pred)
-    recall = recall_score(y_true=y_true, y_pred=y_pred)
-
-    f1 = 2 * (precision * recall) / (precision + recall + epsilon)
-    f1.requires_grad = is_training
-    return f1
-
-
-def accuracy_score(
-    y_true: torch.Tensor, y_pred: torch.Tensor, is_training=False
-) -> torch.Tensor:
-    """Calculate F1 score. Can work with gpu tensors
-
-    The original implmentation is written by Michal Haltuf on Kaggle.
-
-    Returns
-    -------
-    torch.Tensor
-        `ndim` == 1. 0 <= val <= 1
-
-    Reference
-    ---------
-    - https://www.kaggle.com/rejpalcz/best-loss-function-for-f1-score-metric
-    - https://scikit-learn.org/stable/modules/generated/sklearn.metrics.f1_score.html#sklearn.metrics.f1_score
-    - https://discuss.pytorch.org/t/calculating-precision-recall-and-f1-score-in-case-of-multi-label-classification/28265/6
-
-    """
-    assert y_true.ndim == 1
-    assert y_pred.ndim == 1 or y_pred.ndim == 2
-
-    if y_pred.ndim == 2:
-        y_pred = y_pred.argmax(dim=1)
-
-    tp = (y_true * y_pred).sum().to(torch.float32)
-    tn = ((1 - y_true) * (1 - y_pred)).sum().to(torch.float32)
-    fp = ((1 - y_true) * y_pred).sum().to(torch.float32)
-    fn = (y_true * (1 - y_pred)).sum().to(torch.float32)
-
-    epsilon = 1e-7
-
-    return (tp + tn) / (tp + fp + tn + fp)
+def TrainerMetric(*args, **kwargs):
+    metric = __TrainerMetric(*args, **kwargs)
+    on_initialization(metric.init)
+    on_run_begin(metric.reset)
+    on_run_end(metric.update)
+    # on_step_begin()
+    on_step_end(metric.step)
+    return metric

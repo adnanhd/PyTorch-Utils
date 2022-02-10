@@ -28,31 +28,31 @@ class TrainerCallback(ABC):
     The abstract base class to be subclassed when creating new callbacks.
     """
 
-    def on_init_end(self, trainer, **kwargs):
+    def on_initialization(self, trainer, **kwargs):
         """
         Event called at the end of trainer initialisation.
         """
         pass
 
-    def on_training_run_start(self, trainer, **kwargs):
+    def on_training_begin(self, trainer, **kwargs):
         """
         Event called at the start of training run.
         """
         pass
 
-    def on_train_epoch_start(self, trainer, **kwargs):
+    def on_training_epoch_begin(self, trainer, **kwargs):
         """
         Event called at the beginning of a training epoch.
         """
         pass
 
-    def on_train_step_start(self, trainer, **kwargs):
+    def on_training_step_begin(self, trainer, **kwargs):
         """
         Event called at the beginning of a training step.
         """
         pass
 
-    def on_train_step_end(self, trainer, batch, batch_output, **kwargs):
+    def on_training_step_end(self, trainer, batch, batch_output, **kwargs):
         """
         Event called at the end of a training step.
         :param batch: the current batch of training data
@@ -60,53 +60,67 @@ class TrainerCallback(ABC):
         """
         pass
 
-    def on_train_epoch_end(self, trainer, **kwargs):
+    def on_training_epoch_end(self, trainer, **kwargs):
         """
         Event called at the end of a training epoch.
         """
         pass
 
-    def on_eval_epoch_start(self, trainer, **kwargs):
+    def on_training_end(self, trainer, **kwargs):
+        """
+        Event called at the end of training run.
+        """
+        pass
+
+    def on_validation_run_begin(self, trainer, **kwargs):
         """
         Event called at the beginning of an evaluation epoch.
         """
         pass
 
-    def on_eval_step_start(self, trainer, **kwargs):
+    def on_validation_step_begin(self, trainer, **kwargs):
         """
         Event called at the beginning of a evaluation step.
         """
         pass
 
-    def on_eval_step_end(self, trainer, batch, batch_output, **kwargs):
+    def on_validation_step_end(self, trainer, batch, batch_output, **kwargs):
         """
         Event called at the end of an evaluation step.
         :param batch: the current batch of evaluation data
         :param batch_output: the outputs returned by :meth:`pytorch_accelerated.trainer.Trainer.calculate_eval_batch_loss`
         """
         pass
-
-    def on_eval_epoch_end(self, trainer, **kwargs):
+    
+    def on_validation_run_end(self, trainer, **kwargs):
         """
-        Event called at the end of evaluation.
+        Event called at the start of an evaluation run.
         """
         pass
 
-    def on_training_run_epoch_end(self, trainer, **kwargs):
+    def on_training_valid_end(self, trainer, **kwargs):
         """
         Event called during a training run after both training and evaluation epochs have been completed.
         """
         pass
 
-    def on_training_run_end(self, trainer, **kwargs):
+    def on_evaluation_run_begin(self, trainer, **kwargs):
         """
-        Event called at the end of training run.
+        Event called at the start of an evaluation run.
         """
         pass
 
-    def on_evaluation_run_start(self, trainer, **kwargs):
+    def on_evaluation_step_begin(self, trainer, **kwargs):
         """
-        Event called at the start of an evaluation run.
+        Event called at the beginning of a evaluation step.
+        """
+        pass
+
+    def on_evaluation_step_end(self, trainer, batch, batch_output, **kwargs):
+        """
+        Event called at the end of an evaluation step.
+        :param batch: the current batch of evaluation data
+        :param batch_output: the outputs returned by :meth:`pytorch_accelerated.trainer.Trainer.calculate_eval_batch_loss`
         """
         pass
 
