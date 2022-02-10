@@ -9,3 +9,5 @@ from .dtypes import Datum
 from .sample import StoredSample, Sample
 from .dataset import Dataset
 from .prepare import CrudeDatum as Prepare
+
+__version__ = '1.0.0'

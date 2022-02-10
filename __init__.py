@@ -13,7 +13,7 @@ import utils.trainer
 
 epsilon = 1e-5
 torch.backends.cudnn.benchmark = True
-
+__version__ = '2.0.0'
 
 class Pipeline(object):
     #from utils.params import HParams    #####
