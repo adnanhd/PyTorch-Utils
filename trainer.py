@@ -135,9 +135,9 @@ class Trainer:
                 y_true[y_true == 0] = 1e-5
 
                 try:
-                    loss = self.loss_func(y_pred, y_true, features)
-                except TypeError:
                     loss = self.loss_func(y_pred, y_true)
+                except TypeError:
+                    loss = self.loss_func(y_pred, y_true, features)
 
                 self.optimizer.zero_grad()
                 loss.backward()
