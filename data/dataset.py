@@ -10,7 +10,6 @@ import hashlib
 import numpy as np
 import matplotlib.pyplot as plt
 from .dtypes import Datum
-from .sample import StoredSample, Sample
 from .utils import Constants, generate_dataset
 
 __version__ = '1.0.a'

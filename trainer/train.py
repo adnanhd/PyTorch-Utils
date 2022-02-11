@@ -81,25 +81,30 @@ def _run_training_epoch(
     trainer.__handle__("on_training_epoch_begin", epoch=epoch)
 
     trainer.model.train()
+    train_loss = 0
     for batch, (features, y_truth) in enumerate(train_loader):
-        _run_training_step(
+        train_loss += _run_training_step(
             trainer=trainer, epoch=epoch, batch_idx=batch, **kwargs,
             x=features.to(device=trainer.device, dtype=trainer.xtype),
             y=y_truth.to(device=trainer.device, dtype=trainer.ytype),
         )
+    train_loss /= len(train_loader)
 
     trainer.metrics.update(epoch)
-    trainer.__handle__("on_training_epoch_end", epoch=epoch,
-                       **trainer.metrics.updated_values(epoch))
+    results = trainer.metrics.updated_values(epoch)
+    results.setdefault('loss', train_loss)
+    trainer.__handle__("on_training_epoch_end", epoch=epoch, **results)
 
     if valid_loader is not None:
-        _run_validating(
+        val_results = _run_validating(
             trainer,
             valid_loader,
             **kwargs,
         )
 
-    trainer.__handle__("on_training_valid_end", epoch=epoch)
+        results.update(_add_prefix('val', val_results))
+
+    trainer.__handle__("on_training_valid_end", epoch=epoch, **results)
 
 
 def _run_training_step(
@@ -129,8 +134,10 @@ def _run_training_step(
     )
 
     trainer.__handle__("on_training_step_end",
-                       epoch=epoch, 
+                       epoch=epoch,
                        batch=batch_idx,
                        loss=loss.detach(),
                        batch_output=y_pred.detach(),
                        **trainer.metrics.stepped_values(batch_idx))
+
+    return loss.detach()

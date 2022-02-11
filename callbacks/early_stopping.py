@@ -9,13 +9,13 @@ import numpy as np
 import torch
 from torch import nn
 from tqdm import tqdm
-from .base import TrainerCallback
+from .base import TrainerCallback, StopTrainingError
 
 class EarlyStopping(TrainerCallback):
     """Early stops the training if validation loss doesn't improve after a given patience."""
 
     def __init__(
-        self, patience=7, verbose=False, delta=0, trace_func=print, save_model=True
+        self, monitor='val_loss', patience=7, verbose=False, delta=0, trace_func=print, save_model=True
     ):
         """
         Args:
@@ -30,6 +30,7 @@ class EarlyStopping(TrainerCallback):
             trace_func (function): trace print function.
                             Default: print
         """
+        self.monitor = monitor
         self.patience = patience
         self.verbose = verbose
         self.counter = 0
@@ -40,8 +41,8 @@ class EarlyStopping(TrainerCallback):
         self.delta = delta
         self.trace_func = trace_func
 
-    def on_train_epoch_end(self, trainer, valid_loss=None, epoch=None, **kwargs):
-        score = -valid_loss
+    def on_training_valid_end(self, trainer, epoch=None, **kwargs):
+        score = -kwargs[self.monitor]
 
         if self.best_score is None:
             self.best_score = score
@@ -53,9 +54,7 @@ class EarlyStopping(TrainerCallback):
                 )
             if self.counter >= self.patience:
                 self.early_stop = True
-                trainer.stop_iter(restart=False)
-                if self.save_model:
-                    trainer.save_checkpoint(epoch=epoch)
+                raise StopTrainingError(f'EarlyStop stopped the model')
         else:
             self.best_score = score
             self.counter = 0
