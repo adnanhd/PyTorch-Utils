@@ -30,18 +30,22 @@ def _run_evaluating(
 
     trainer.model.eval()
     with torch.no_grad():
-        for batch, (features, y_true) in enumerate(loader):
+        preds = [
             _run_evaluating_step(
                 trainer=trainer, batch_idx=batch, *args, **kwargs,
                 x=features.to(device=trainer.device, dtype=trainer.xtype),
                 y=y_true.to(device=trainer.device, dtype=trainer.ytype),
             )
+            for batch, (features, y_true) in enumerate(loader)
+        ]
 
     trainer.metrics.update()
     trainer.__handle__(
         "on_evaluation_run_end",
-        last_batch=batch
+        last_batch=len(preds)
     )
+
+    return torch.concat(preds)
 
 
 def _run_evaluating_step(
@@ -67,3 +71,5 @@ def _run_evaluating_step(
                        loss=loss.detach(),
                        batch_output=y_pred.detach(),
                        **trainer.metrics.stepped_values(batch_idx))
+
+    return y_pred.detach()

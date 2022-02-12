@@ -25,7 +25,7 @@ def _default_dim_check(arr, dim):
         return None
 
 
-def normalizer(normalizer_fn):
+def insert_shape_at_end(normalizer_fn):
     def wrapped_fn(arr, dim=None, shape=-1):
         if isinstance(dim, type(None)):
             dim = _default_dim_check(arr, dim)
@@ -37,29 +37,67 @@ def normalizer(normalizer_fn):
     return wrapped_fn
 
 
-def denormalizer(denormalizer_fn):
-    def wrapped_dfn(arr, key):
-        _key, shape = key
-        return denormalizer_fn(arr, _key, shape)
+def append_shape_at_begin(denormalizer_fn):
+    def wrapped_dfn(arr, key_shape):
+        key, shape = key_shape
+        return denormalizer_fn(arr, key, shape)
     return wrapped_dfn
 
 
-@normalizer
-def l1_norm(arr, dim=None, shape=-1) -> Tuple[int, int]:
-    nsum = arr.sum(dim)
+def denormalize_model(solver, key_shape):
+    def denormalize_model_interface(model):
+        class WrappedModel(torch.nn.Module):
+            def __init__(self, model):
+                super(WrappedModel, self).__init__()
+                self.model = model
+
+            def __call__(self, *args, **kwargs):
+                res = self.model(*args, **kwargs)
+                sol = solver(res, key_shape)
+                return sol
+
+        return WrappedModel(model)
+    return denormalize_model_interface
+
+
+@insert_shape_at_end
+def l1_norm_key(arr, dim, shape=-1):
+    return arr.sum(dim)
+
+
+def to_key_tensor(key_shape, **kwargs):
+    key, shape = key_shape
+    _to_tensor = lambda k: torch.from_numpy(k) if isinstance(k, np.ndarray) else torch.Tensor(k)
+    if isinstance(key, tuple):
+        key = tuple(_to_tensor(k).to(**kwargs) for k in key)
+    else:
+        key = _to_tensor(key).to(**kwargs)
+    return key, shape
+
+
+
+def l1_norm(arr, dim=None) -> Tuple[int, int]:
+    nsum, shape = l1_norm_key(arr, dim)
     arr /= nsum.reshape(shape)
     return nsum
 
 
-@denormalizer
-def l1_denorm(arr, key, shape=-1) -> None:
-    arr *= key.reshape(shape)
+@append_shape_at_begin
+def l1_norm_solver(arr, key, shape):
+    return arr * key.reshape(shape)
 
 
-@normalizer
-def mean_std_norm(arr, dim=None, shape=-1) -> Tuple[int, int]:
-    nmean = arr.mean(dim)
-    nstd = arr.std(dim)
+def l1_denorm(arr, key_shape) -> None:
+    arr = l1_norm_solver(arr, key_shape)
+
+
+@insert_shape_at_end
+def mean_std_key(arr, dim, shape):
+    return arr.mean(dim), arr.std(dim)
+
+
+def mean_std_norm(arr, dim=None) -> Tuple[int, int]:
+    (nmean, nstd), shape = mean_std_key(arr, dim)
 
     arr -= nmean.reshape(shape)
     arr /= nstd.reshape(shape)
@@ -67,18 +105,23 @@ def mean_std_norm(arr, dim=None, shape=-1) -> Tuple[int, int]:
     return nmean, nstd
 
 
-@denormalizer
-def mean_std_denorm(arr, key, shape=-1) -> None:
+@append_shape_at_begin
+def mean_std_solver(arr, key, shape=-1):
     nmean, nstd = key
-
-    arr *= nstd.reshape(shape)
-    arr += nmean.reshape(shape)
+    return arr * nstd + nmean
 
 
-@normalizer
-def min_max_norm(arr, dim=None, shape=-1) -> Tuple[int, int]:
-    nmin = arr.min(dim)
-    nmax = arr.max(dim)
+def mean_std_denorm(arr, key_shape) -> None:
+    arr = mean_std_solver(arr, key_shape)
+
+
+@insert_shape_at_end
+def min_max_key(arr, dim, shape=-1):
+    return arr.min(dim), arr.max(dim)
+
+
+def min_max_norm(arr, dim=None) -> Tuple[int, int]:
+    (nmin, nmax), shape = min_max_key(arr, dim)
 
     arr -= nmin.reshape(shape)
     arr /= (nmax - nmin).reshape(shape)
@@ -86,9 +129,12 @@ def min_max_norm(arr, dim=None, shape=-1) -> Tuple[int, int]:
     return nmin, nmax
 
 
-@denormalizer
-def min_max_denorm(arr, key, shape=-1) -> None:
+@append_shape_at_begin
+def min_max_solver(arr, key, shape=-1) -> None:
     nmin, nmax = key
 
-    arr *= (nmax - nmin).reshape(shape)
-    arr += nmin.reshape(shape)
+    return arr * (nmax - nmin).reshape(shape) + nmin.reshape(shape)
+
+
+def min_max_denorm(arr, key_shape):
+    arr = min_max_solver(arr, key_shape)
