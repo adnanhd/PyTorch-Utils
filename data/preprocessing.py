@@ -46,17 +46,14 @@ def append_shape_at_begin(denormalizer_fn):
 
 def denormalize_model(solver, key_shape):
     def denormalize_model_interface(model):
-        class WrappedModel(torch.nn.Module):
-            def __init__(self, model):
-                super(WrappedModel, self).__init__()
-                self.model = model
-
-            def __call__(self, *args, **kwargs):
-                res = self.model(*args, **kwargs)
-                sol = solver(res, key_shape)
-                return sol
-
-        return WrappedModel(model)
+        def denormalize_decorator(fn):
+            def denormalized_call_method(*args, **kwargs):
+                res = fn(*args, **kwargs)
+                return solver(res, key_shape)
+            return denormalize_decorator
+        
+        model.__call__ = denormalize_decorator(model.__call__)
+        return model
     return denormalize_model_interface
 
 
@@ -79,7 +76,7 @@ def to_key_tensor(key_shape, **kwargs):
 def l1_norm(arr, dim=None) -> Tuple[int, int]:
     nsum, shape = l1_norm_key(arr, dim)
     arr /= nsum.reshape(shape)
-    return nsum
+    return nsum, shape
 
 
 @append_shape_at_begin
@@ -102,7 +99,7 @@ def mean_std_norm(arr, dim=None) -> Tuple[int, int]:
     arr -= nmean.reshape(shape)
     arr /= nstd.reshape(shape)
 
-    return nmean, nstd
+    return (nmean, nstd), shape
 
 
 @append_shape_at_begin
@@ -126,7 +123,7 @@ def min_max_norm(arr, dim=None) -> Tuple[int, int]:
     arr -= nmin.reshape(shape)
     arr /= (nmax - nmin).reshape(shape)
 
-    return nmin, nmax
+    return (nmin, nmax), shape
 
 
 @append_shape_at_begin
