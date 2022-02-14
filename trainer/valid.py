@@ -21,6 +21,7 @@ def _run_validating(
     *args,
     **kwargs,
 ) -> torch.Tensor:
+    trainer.metrics.init(batch_size=loader.batch_size, step_size=loader.__len__())
     trainer.metrics.reset()
     trainer.__handle__(
         "on_validation_run_begin",

@@ -50,7 +50,8 @@ class EarlyStopping(TrainerCallback):
             self.counter += 1
             if self.verbose:
                 self.trace_func(
-                    f"EarlyStopping counter: {self.counter} out of {self.patience}"
+                    f"BOK YE AMK EarlyStopping counter: {self.counter} out of {self.patience}"
+                    f"Best value: {self.best} Epoch-end value: {score}"
                 )
             if self.counter >= self.patience:
                 self.early_stop = True

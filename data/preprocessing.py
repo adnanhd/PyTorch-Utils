@@ -46,13 +46,10 @@ def append_shape_at_begin(denormalizer_fn):
 
 def denormalize_model(solver, key_shape):
     def denormalize_model_interface(model):
-        def denormalize_decorator(fn):
-            def denormalized_call_method(*args, **kwargs):
-                res = fn(*args, **kwargs)
-                return solver(res, key_shape)
-            return denormalize_decorator
-        
-        model.__call__ = denormalize_decorator(model.__call__)
+        def denormalized_call_method(*args, **kwargs):
+            res = model(*args, **kwargs)
+            return solver(res, key_shape)
+        model.__call__ = denormalized_call_method
         return model
     return denormalize_model_interface
 

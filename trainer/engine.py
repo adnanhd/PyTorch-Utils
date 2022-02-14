@@ -217,6 +217,7 @@ class Trainer:
         **kwargs,
     ):
         self.callbacks.add_callbacks(callbacks)
+        self.model = self._prepare(self.model)
         eval_dataloader = self.create_dataloader(
             dataset=dataset,
             train_mode=False,

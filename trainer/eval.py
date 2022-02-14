@@ -21,6 +21,7 @@ def _run_evaluating(
     *args,
     **kwargs,
 ) -> torch.Tensor:
+    trainer.metrics.init(batch_size=loader.batch_size, step_size=loader.__len__())
     trainer.metrics.reset()
     trainer.__handle__(
         "on_evaluation_run_begin",
