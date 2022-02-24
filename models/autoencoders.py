@@ -1,17 +1,17 @@
 import torch
 import torch.nn as nn
-from .mlp import FullyConnectedBlock
-from .cnn import ConvolutionBlock
+from .mlp import FeedForward
+from .cnn import Convolution
 
 class AutoencoderCNN(nn.Module):
     def __init__(self):
         super(AutoencoderCNN, self).__init__()
 
         ### ENCODER
-        self.cnn1 = ConvolutionBlock(1, 32, 32, kernel_size=4, maxpool=(3,3))
-        self.cnn2 = ConvolutionBlock(32, 64, 128, kernel_size=4, maxpool=(2,2))
-        self.fcn1 = FullyConnectedBlock(128, 100, 100, 16)
-        self.fcn2 = FullyConnectedBlock(16, 100, 100, 140)
+        self.cnn1 = Convolution(1, 32, 32, kernel_size=4, maxpool=(3,3))
+        self.cnn2 = Convolution(32, 64, 128, kernel_size=4, maxpool=(2,2))
+        self.fcn1 = FeedForward(128, 100, 100, 16)
+        self.fcn2 = FeedForward(16, 100, 100, 140)
 
     def forward(self, x):  ##216x216,1
         x = self.cnn1(x)
@@ -29,9 +29,9 @@ class AutoencoderMLP(nn.Module):
         super(AutoencoderMLP, self).__init__()
         self.li = li
 
-        self.conv_block = ConvolutionBlock(1, 4, 16, 64, kernel_size=4, maxpool=(3, 3), activation=nn.ReLU()) 
+        self.conv_block = Convolution(1, 4, 16, 64, kernel_size=4, maxpool=(3, 3), activation=nn.ReLU()) 
         self.features = nn.Linear(li, 16)
-        self.fcb = FullyConnectedBlock(16, l1, l2, l3, lo, activation=nn.ReLU())
+        self.fcb = FeedForward(16, l1, l2, l3, lo, activation=nn.ReLU())
 
     def forward(self, x):
         x = self.conv_block(x)

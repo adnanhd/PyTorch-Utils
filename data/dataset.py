@@ -1,12 +1,10 @@
 import os
 import math
 import torch
-import hashlib
+import warnings
 import numpy as np
-import matplotlib.pyplot as plt
 from .dtypes import Datum
-from .sample import StoredSample, Sample
-from .utils import Constants, generate_dataset
+import matplotlib.pyplot as plt
 
 class Dataset(torch.utils.data.dataset.Dataset):
     def __init__(self, features, labels, transform=None, feature_func=None, label_func=None):
@@ -54,10 +52,27 @@ class Dataset(torch.utils.data.dataset.Dataset):
                 label_func=self.label_func)
     
     def leave(self, index):
+        warnings.warn('This method is renamed as split in the future versions', FutureWarning)
+        return self.split(index)
+
+    def split(self, index, shuffle = False):
         if isinstance(index, float):
             index = int(self.__len__() * index)
-        other = self.take(index)
-        self.skip(index)
+        
+        try:
+            from sklearn.model_selection import train_test_split
+            data = train_test_split(features, labels, test_size=index, shuffle=shuffle)
+            self.features = data[0]
+            self.labels = data[1]
+        
+            other = self.take(0)
+            other.features = data[2]
+            other.labels = data[3]
+        except ImportError:
+            warnings.warn("sklearn.model_selection could not imported, therefore shuffle feature is not available", ImportWarning)
+            other = self.take(index)
+            self.skip(index)
+
         return other
 
     def map(self, feature_func=None, label_func=None):
@@ -71,12 +86,18 @@ class Dataset(torch.utils.data.dataset.Dataset):
             self.feature_func = None
             self.label_func = None
 
+    # TODO: add a cache method that stores the dataset as a .npy pickle
     @property
     def shape(self):
         return self.labels.shape
 
+    @property
+    def device(self):
+        assert self.labels.device == self.features.device, f"features and labels are supposed to be on the same device {self.labels.device} {self.features.device}"
+        return self.labels.device
+
     @classmethod
-    def to_dataloader(cls, features, labels, batch_size=None, train=True, transform=None, num_workers=0):
+    def as_dataloader(cls, features, labels, batch_size=None, train=True, transform=None, num_workers=0):
         if batch_size is None:
             batch_size = len(features)
         return torch.utils.data.DataLoader(cls(features, labels, transform=transform),
@@ -92,41 +113,8 @@ class Dataset(torch.utils.data.dataset.Dataset):
                                            num_workers=num_workers)
 
     def __repr__(self):
-        return f"<Dataset: {self.__len__()} samples>(features: {self.features.shape}, labels: {self.labels.shape})"
-
-"""
-    @classmethod
-    def from_preloaded(cls, feature_class, label_class, 
-            transform=None, feature_func=None, label_func=None, 
-            path=Constants.preloaded_dataset_path, cache=True):
-        
-        try:
-            import tqdm
-        except ImportError:
-            iterator = range
-        else:
-            iterator = tqdm.tqdm
-
-        cache_filepath = hex(int(label_class.hash(), 16) ^ int(feature_class.hash(), 16))[2:]
-        cache_filepath = os.path.join(path, cache_filepath)
-
-        if os.path.isfile(cache_filepath):
-            cache = torch.load(cache_filepath)
-            features, labels = cache['features'], cache['labels']
-        else:
-            datapath = list(generate_dataset(feature_class, label_class, filepath=path))
-            
-            features = torch.empty(torch.Size([len(datapath)]) + torch.Size(feature_class.shape))
-            labels = torch.empty(torch.Size([len(datapath)]) + torch.Size(label_class.shape))
-            
-            for i, datum_name in enumerate(iterator(datapath)):
-                features[i] = feature_class.load(path, datum_name).data
-                labels[i] = label_class.load(path, datum_name).data
-            
-            if cache:
-                torch.save({'features': features, 'labels': labels}, cache_filepath)
-
-        return cls(features, labels, transform, feature_func, label_func)
-"""
-
+        device = self.features.device
+        if device != self.labels.device:
+            device = (device, self.labels.device)
+        return f"<Dataset: {self.__len__()} samples>(features: {self.features.shape}, labels: {self.labels.shape}, device: {device})"
 

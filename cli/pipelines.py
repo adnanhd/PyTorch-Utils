@@ -1,23 +1,13 @@
-#!/usr/bin/env python3
-import torch, os, json
+import torch
+from typing import Optional, Union
+from .params import TrainerArguments
 
-import utils.data
-import utils.models
-import utils.logging
-import utils.callbacks
-
-import utils.metrics
-import utils.trainer
-# command line interface
-import utils.cli
 
 epsilon = 1e-5
 torch.backends.cudnn.benchmark = True
 
 
 class Pipeline(object):
-    from utils.cli.params import TrainerArguments
-    from typing import Optional, Union
     def __init__(self, 
             save_path: Optional[str]="checkpoints",
             description: Optional[str]=None, 
