@@ -1,10 +1,8 @@
 #!/usr/bin/env python3
-from curses import KEY_A1
-import pandas as pd
-import os, time
+import os
+from ..data.dataset import Dataset
 from ..metrics import TrainerMetric
-import torch, math
-from tqdm import tqdm, trange, utils
+import torch
 from utils.callbacks import (
     CallbackHandler,
     CallbackMethodNotImplementedError,
@@ -84,7 +82,7 @@ class Trainer:
         for arg in args:
             if isinstance(arg, torch.nn.Module):
                 arg = arg.to(device=self.device, dtype=self.xtype)
-            elif isinstance(arg, utils.data.dataset.Dataset):
+            elif isinstance(arg, Dataset):
                 arg.features = arg.features.to(device=self.device, dtype=self.xtype)
                 arg.labels = arg.labels.to(device=self.device, dtype=self.ytype)
             prepared.append(arg)
@@ -95,7 +93,7 @@ class Trainer:
             return tuple(prepared)
 
     # if loss is not then model saves the best results only
-    def save_checkpoint(self, epoch=None, path=None, **state):
+    def save_checkpoint(self, path=None, **state):
         makedirs(self.model_path)
         if path is None:
             path = self.model_path
@@ -108,7 +106,7 @@ class Trainer:
                 if module is not None: 
                     state[key] = module.state_dict()
             except AttributeError:
-                warnings.warn(f"{key} has no state_dict() attribute.", Warning)
+                warnings.warn(f"{key} has no state_dict() attribute.", RuntimeWarning)
 
         state['version'] = version
         torch.save(state, path)
@@ -117,22 +115,19 @@ class Trainer:
         if path is None:
             path = self.model_path
 
-        if not os.path.isdir(path):
-            path = os.path.split(path)[0]
-
-        if epoch is None or isinstance(epoch, bool) and epoch:
-            epoch = max(
-                int(p.split("_")[1]) for p in os.listdir(path) if self.model_name in p
-            )
-
-        path = os.path.join(path, f"{self.model_name}.ckpt")
+        if os.path.isdir(path):
+            path = os.path.join(path, f"{self.model_name}.ckpt")
 
         checkpoint = torch.load(path, map_location=self.device)
         checkkeys = ("model", "scheduler", "optimizer", "criterion")
 
+        print(checkpoint.keys())
         for key in checkkeys:
-            if self.__getattribute__(key) and checkpoint[key]:
+            if key in checkpoint:
                 self.__getattribute__(key).load_state_dict(checkpoint[key])
+            else:
+                warnings.warn(f"{key} has no key in the loaded path.", RuntimeWarning)
+
                 # del checkpoint[key]
 
         return epoch  # , pd.DataFrame(checkpoint, columns=checkpoint.keys(), index=range(epoch))
@@ -222,6 +217,7 @@ class Trainer:
         **kwargs,
     ):
         self.callbacks.add_callbacks(callbacks)
+        self.model = self._prepare(self.model)
         eval_dataloader = self.create_dataloader(
             dataset=dataset,
             train_mode=False,
@@ -229,9 +225,9 @@ class Trainer:
             **dataloader_kwargs,
         )
 
-        _run_evaluating(self, eval_dataloader, **kwargs)
+        evals = _run_evaluating(self, eval_dataloader, **kwargs)
         self.callbacks.remove_callbacks(callbacks)
-        return self.metrics.updated_values()
+        return evals, self.metrics.updated_values()
 
     def __handle__(self, event, **kwargs):
         self.callbacks.call_event(self, event, **kwargs)

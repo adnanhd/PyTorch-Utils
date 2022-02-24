@@ -64,7 +64,7 @@ class ProgressBar(TrainerLogger):
             unit="case",
             file=os.sys.stdout,
             dynamic_ncols=True,
-            desc=f"Test",
+            desc=f"Validation",
             colour="GREEN",
             # postfix=self.metrics.keys(),
         )

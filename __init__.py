@@ -14,6 +14,8 @@ import utils.cli
 epsilon = 1e-5
 torch.backends.cudnn.benchmark = True
 
+__version__ = '2.7.0'
+
 
 class Pipeline(object):
     from utils.cli.params import TrainerArguments

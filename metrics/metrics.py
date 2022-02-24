@@ -18,15 +18,16 @@ class TrainerMetric(ABC):
                  dtype: Optional[torch.dtype] = None
                  ):
         self.metrics = metrics
+        self.index = set()
         self.loss_list = loss_list
         self.device = device
         self.dtype = dtype
 
     # @on_run_begin
     def init(self,
-             step_size: int,
+             step_size: int, # number of batches in an epoch
+             batch_size: int = None, # number of samples in a batch
              epoch: int = None,
-             batch_size: int = None,
              **kwargs,
              ) -> None:
         if self.dtype is not None:
@@ -34,13 +35,14 @@ class TrainerMetric(ABC):
         if self.device is not None:
             kwargs.setdefault('device', self.device)
 
-        self.loss_list = torch.empty(
-            step_size, self.metrics.__len__(), **kwargs,
+        self.loss_list = torch.zeros(
+            step_size, len(self.metrics), **kwargs,
         )
 
     # @on_epoch_begin
     def reset(self):
         self.loss_list.zero_()
+        self.index.clear()
 
     # @on_epoch_end
     def update(self,
@@ -59,18 +61,18 @@ class TrainerMetric(ABC):
         *args,
         **kwargs,
     ) -> None:
-        self.loss_list[batch_idx, :] = torch.tensor(
-            [
-                self.metrics[metric_name](y_true, y_pred)
-                for metric_name in self.metrics.keys()
-            ]
-        )
+        for metric_idx, metric_fn in enumerate(self.metrics.values()):
+            self.loss_list[batch_idx, metric_idx] = metric_fn(y_true, y_pred)
 
     def stepped_values(self, batch_idx: int) -> Mapping[str, torch.tensor]:
+        if batch_idx not in self.index:
+            return {}
         return dict(zip(self.metrics.keys(), self.loss_list[batch_idx, :]))
 
     def updated_values(self, *args, **kwargs) -> Mapping[str, torch.Tensor]:
-        return dict(zip(self.metrics.keys(), self.loss_list.mean(0)))
+        if len(self.index) == 0:
+            return {}
+        return dict(zip(self.metrics.keys(), self.loss_list[list(self.index)].mean(0)))
 
     def save(self):
         with open(self.path, "w") as f:
