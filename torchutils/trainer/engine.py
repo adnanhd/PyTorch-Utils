@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-import pandas as pd
-import os, time
-import torch, math
-from tqdm import tqdm, trange, utils
-from utils.callbacks import (
+import os
+from ..data.dataset import Dataset
+from ..metrics import TrainerMetric
+import torch
+from torchutils.callbacks import (
     CallbackHandler,
     CallbackMethodNotImplementedError,
     TrainerCallback,
@@ -11,9 +11,10 @@ from utils.callbacks import (
 )
 
 import warnings
-from utils.metrics import loss_to_metric, MetricHandler
-from .train import _run_training, _run_training_epoch, _run_training_step
-from .valid import _run_validating, _run_validating_step
+from torchutils.metrics import loss_to_metric, MetricHandler
+from .train import _run_training
+from .valid import _run_validating
+from .eval import _run_evaluating
 
 from typing import (
     List, 
@@ -68,7 +69,7 @@ class Trainer:
         self.optimizer = optim
         self.scheduler = sched
 
-        self.metrics = MetricHandler()
+        self.metrics = TrainerMetric()
         #self.loggers = LoggerHandler()
         self.callbacks = CallbackHandler()
 
@@ -81,7 +82,7 @@ class Trainer:
         for arg in args:
             if isinstance(arg, torch.nn.Module):
                 arg = arg.to(device=self.device, dtype=self.xtype)
-            elif isinstance(arg, utils.data.dataset.Dataset):
+            elif isinstance(arg, Dataset):
                 arg.features = arg.features.to(device=self.device, dtype=self.xtype)
                 arg.labels = arg.labels.to(device=self.device, dtype=self.ytype)
             prepared.append(arg)
@@ -92,7 +93,7 @@ class Trainer:
             return tuple(prepared)
 
     # if loss is not then model saves the best results only
-    def save_checkpoint(self, epoch=None, path=None, **state):
+    def save_checkpoint(self, path=None, **state):
         makedirs(self.model_path)
         if path is None:
             path = self.model_path
@@ -105,7 +106,7 @@ class Trainer:
                 if module is not None: 
                     state[key] = module.state_dict()
             except AttributeError:
-                warnings.warn(f"{key} has no state_dict() attribute.", Warning)
+                warnings.warn(f"{key} has no state_dict() attribute.", RuntimeWarning)
 
         state['version'] = version
         torch.save(state, path)
@@ -114,22 +115,19 @@ class Trainer:
         if path is None:
             path = self.model_path
 
-        if not os.path.isdir(path):
-            path = os.path.split(path)[0]
-
-        if epoch is None or isinstance(epoch, bool) and epoch:
-            epoch = max(
-                int(p.split("_")[1]) for p in os.listdir(path) if self.model_name in p
-            )
-
-        path = os.path.join(path, f"{self.model_name}.ckpt")
+        if os.path.isdir(path):
+            path = os.path.join(path, f"{self.model_name}.ckpt")
 
         checkpoint = torch.load(path, map_location=self.device)
         checkkeys = ("model", "scheduler", "optimizer", "criterion")
 
+        print(checkpoint.keys())
         for key in checkkeys:
-            if self.__getattribute__(key) and checkpoint[key]:
+            if key in checkpoint:
                 self.__getattribute__(key).load_state_dict(checkpoint[key])
+            else:
+                warnings.warn(f"{key} has no key in the loaded path.", RuntimeWarning)
+
                 # del checkpoint[key]
 
         return epoch  # , pd.DataFrame(checkpoint, columns=checkpoint.keys(), index=range(epoch))
@@ -170,7 +168,8 @@ class Trainer:
         loggers=None,
         callbacks=None,
     ) -> None:
-        pass
+        if metrics is not None:
+            self.metrics = TrainerMetric(metrics=metrics, dtype=self.ytype, device=self.device)
 
     def train(
         self,
@@ -184,8 +183,6 @@ class Trainer:
     ):
         self.callbacks.add_callbacks(callbacks)
         self.model = self._prepare(self.model)
-        self.metrics.init(batch_size=batch_size, 
-                dtype=self.ytype, device=self.device)
 
         _train_dataloader = self.create_dataloader(
             dataset=train_dataset,
@@ -214,23 +211,24 @@ class Trainer:
         
     def evaluate(
         self,
-        test_dataset,
-        test_dataloader_kwargs={},
+        dataset,
+        dataloader_kwargs={},
         callbacks: List[TrainerCallback] = [],
         **kwargs,
     ):
         self.callbacks.add_callbacks(callbacks)
+        self.model = self._prepare(self.model)
         eval_dataloader = self.create_dataloader(
-            dataset=test_dataset,
+            dataset=dataset,
             train_mode=False,
-            batch_size=test_dataset.__len__(),
-            **test_dataloader_kwargs,
+            batch_size=dataset.__len__(),
+            **dataloader_kwargs,
         )
 
-        _run_evaluate(self, eval_dataloader)
+        evals = _run_evaluating(self, eval_dataloader, **kwargs)
         self.callbacks.remove_callbacks(callbacks)
+        return evals, self.metrics.updated_values()
 
-    def __handle__(self, event, epoch=None, batch=None, **kwargs):
-        #self.loggers.call_event(event)
+    def __handle__(self, event, **kwargs):
         self.callbacks.call_event(self, event, **kwargs)
 

@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 
-import utils.callbacks.base
-import utils.callbacks.early_stopping
-import utils.callbacks.handler
-import utils.callbacks.model_checkpoint
+import torchutils.callbacks.base
+import torchutils.callbacks.early_stopping
+import torchutils.callbacks.handler
+import torchutils.callbacks.model_checkpoint
 
 from .base import TrainerCallback, StopTrainingError, CallbackMethodNotImplementedError
 from .early_stopping import EarlyStopping

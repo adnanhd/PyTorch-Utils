@@ -37,12 +37,16 @@ class TrainerCallback(ABC):
     def on_training_begin(self, trainer, **kwargs):
         """
         Event called at the start of training run.
+        :param num_epochs total number of epochs at the most 
+        :param batch_size the number of samples in a training batch 
+        :param step_size the number of batches
         """
         pass
 
     def on_training_epoch_begin(self, trainer, **kwargs):
         """
         Event called at the beginning of a training epoch.
+        :param epoch
         """
         pass
 
