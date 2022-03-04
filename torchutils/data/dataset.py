@@ -9,7 +9,8 @@ import hashlib
 import numpy as np
 import matplotlib.pyplot as plt
 from .dtypes import Datum
-from .utils import Constants, generate_dataset
+from .utils import hybridmethod
+from sklearn.model_selection import train_test_split
 
 __version__ = '1.0.a'
 
@@ -23,6 +24,8 @@ class Dataset(torch.utils.data.dataset.Dataset):
         self.label_func = label_func
 
     def __len__(self):
+        if len(self.features) != len(self.labels):
+            raise IndexError(f'features and labels expected to be same size but found {self.features.shape}, {self.labels.shape}')
         return len(self.labels)
 
     def __getitem__(self, index):
@@ -45,12 +48,15 @@ class Dataset(torch.utils.data.dataset.Dataset):
 
         return feature, label
 
-    def skip(self, index):
-        self.features = self.features[index:]
-        self.labels = self.labels[index:]
+    def drop(self, start, end=None):
+        if end is None:
+            end = start
+            start = 0
+        del self.features[start:end]
+        del self.labels[start:end]
 
     def take(self, start, end=None):
-        if not end:
+        if end is None:
             end = start
             start = 0
         return Dataset(features=self.features[start:end],
@@ -59,30 +65,47 @@ class Dataset(torch.utils.data.dataset.Dataset):
                        feature_func=self.feature_func,
                        label_func=self.label_func)
 
-    def leave(self, index):
+    def train_test_drop(self, index):
         if isinstance(index, float):
             index = int(self.__len__() * index)
         other = self.take(index)
         self.skip(index)
         return other
+    
+    def split(self, test_size, *args, **kwargs):
+        self.features, X_test, self.labels, y_test \
+            = train_test_split(self.features, self.labels, 
+                    test_size=test_size, *args, **kwargs)
+
+        return Dataset(features=X_test, labels=y_test,
+                       transform=self.transform,
+                       feature_func=self.feature_func,
+                       label_func=self.label_func)
+
+    def train_test_split(self, test_size, valid_size=None, *args, **kwargs):
+        test_dataset = self.split(test_size, *args, **kwargs)
+        if valid_size is None:
+            return test_dataset
+        valid_dataset = self.split(valid_size, *args, **kwargs)
+        return test_dataset, valid_dataset
 
     def map(self, feature_func=None, label_func=None):
-        if feature_func:
+        flag = True
+
+        if callable(feature_func):
             self.feature_func = feature_func
+            flag = False
 
-        if label_func:
+        if callable(label_func):
             self.label_func = label_func
+            flag = False
 
-        if (not feature_func) and (not label_func):
+        if flag:
             self.feature_func = None
             self.label_func = None
 
-    @property
-    def shape(self):
-        return self.labels.shape
-
-    @classmethod
-    def to_dataloader(cls, features, labels, batch_size=None, train=True, transform=None, num_workers=0):
+    @hybridmethod
+    def dataloader(cls, features, labels, batch_size=None, train=True, transform=None, num_workers=0):
         if batch_size is None:
             batch_size = len(features)
         return torch.utils.data.DataLoader(cls(features, labels, transform=transform),
@@ -90,6 +113,7 @@ class Dataset(torch.utils.data.dataset.Dataset):
                                            shuffle=train,
                                            num_workers=num_workers)
 
+    @dataloader.instancemethod
     def dataloader(self, batch_size=None, train=True, num_workers=0):
         if batch_size is None:
             batch_size = self.__len__()
@@ -97,11 +121,12 @@ class Dataset(torch.utils.data.dataset.Dataset):
                                            batch_size=batch_size,
                                            num_workers=num_workers)
 
-    @classmethod
-    def load_from(cls, path):
+    @hybridmethod
+    def load(cls, path):
         data = torch.load(path)
         return cls(features=data['features'], labels=data['labels'])
 
+    @load.instancemethod
     def load(self, path):
         data = torch.load(path)
         self.labels = data['labels']

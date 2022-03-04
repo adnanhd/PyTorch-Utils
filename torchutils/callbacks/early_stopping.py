@@ -15,7 +15,7 @@ class EarlyStopping(TrainerCallback):
     """Early stops the training if validation loss doesn't improve after a given patience."""
 
     def __init__(
-        self, monitor='val_loss', patience=7, verbose=False, delta=0, trace_func=print, save_model=True
+        self, monitor='val_loss', patience=7, verbose=False, delta=0, trace_func=print,
     ):
         """
         Args:
@@ -36,7 +36,6 @@ class EarlyStopping(TrainerCallback):
         self.counter = 0
         self.best_score = None
         self.early_stop = False
-        self.save_model = save_model
         self.val_loss = np.Inf
         self.delta = delta
         self.trace_func = trace_func

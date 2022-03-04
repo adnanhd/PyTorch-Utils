@@ -27,6 +27,10 @@ class ProgressBar(TrainerLogger):
         self.pbar.close()
         if self._delay > 0.0:
             time.sleep(self._delay)
+    
+    def __call__(self, *args, update=1, **kwargs):
+        self.pbar.set_description(*args, **kwargs)
+        self.pbar.update(update)
 
     def on_training_begin(self, *args, batch_size=None, step_size=None, **kwargs):
         self._prog_size = step_size
