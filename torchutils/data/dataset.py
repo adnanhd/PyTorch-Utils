@@ -12,7 +12,7 @@ from .dtypes import Datum
 from .utils import hybridmethod
 from sklearn.model_selection import train_test_split
 
-__version__ = '1.0.a'
+__version__ = '2.0.a'
 
 
 class Dataset(torch.utils.data.dataset.Dataset):
@@ -121,22 +121,36 @@ class Dataset(torch.utils.data.dataset.Dataset):
                                            batch_size=batch_size,
                                            num_workers=num_workers)
 
+    @staticmethod
+    def _load(path):
+        data = torch.load(path)
+        def _check_checksum(data, checksum):
+            assert checksum['sha256'] == hashlib.sha256(bytes(data)).hexdigest(), "SHA256 checksum must match"
+            assert checksum['blake2b'] == hashlib.blake2b(bytes(data)).hexdigest(), "blake2d checksum must match"
+            return data
+
+        return _check_checksum(**data['features']), _check_checksum(**data['labels'])
+
     @hybridmethod
     def load(cls, path):
-        data = torch.load(path)
-        return cls(features=data['features'], labels=data['labels'])
+        features, labels = cls._load(path)
+        return cls(features=features, labels=labels)
 
     @load.instancemethod
     def load(self, path):
-        data = torch.load(path)
-        self.labels = data['labels']
-        self.features = data['features']
+        self.features, self.labels = self._load(path)
 
     def save(self, path):
-        torch.save({'features': self.features, 'labels': self.labels,
-                    'utils.__version__': torchutils.__version__,
-                    'utils.data.__version__': torchutils.data.__version__,
-                    'utils.data.dataset.__version__': __version__, }, path)
+        def _add_checksum(arr):
+            return {'data': arr, 'checksum': {'sha256': hashlib.sha256(bytes(arr)).hexdigest(), 'blake2b': hashlib.blake2b(bytes(arr)).hexdigest()}}
+
+        torch.save({
+                'features': _add_checksum(self.features), 
+                'labels': _add_checksum(self.labels),
+                'package vesion': torchutils.__version__,
+                'data module version': torchutils.data.__version__,
+                'dataset class version': torchutils.data.dataset.__version__, 
+            }, path)
 
     def __repr__(self):
         return f"<Dataset: {self.__len__()} samples>(features: {self.features.shape}, labels: {self.labels.shape})"
