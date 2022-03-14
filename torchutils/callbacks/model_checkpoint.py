@@ -15,7 +15,13 @@ from .base import TrainerCallback
 class ModelCheckpoint(TrainerCallback):
     """Early stops the training if validation loss doesn't improve after a given patience."""
 
-    def __init__(self, monitor="val_loss", save_path='best_model.ckpt', verbose=False, this_max=False, load_back=False, save_best_only=False):
+    def __init__(self, 
+            monitor="val_loss", 
+            save_path='best_model.ckpt', 
+            verbose=False, 
+            this_max=False, 
+            load_back=False, 
+            save_best_only=False):
         self.monitor = monitor
         self.best_weights = None
         self.verbose = verbose
@@ -45,7 +51,8 @@ class ModelCheckpoint(TrainerCallback):
         if self.best_weights is not None:
             trainer.model.load_state_dict(self.best_weights)
             try:
-                data = torch.load(self.save_path) # FileNotFoundError
+                data = torch.load(self.save_path, 
+                        map_location=trainer.device) # FileNotFoundError
                 metric_value = data[self.monitor] # KeyError
                 save_model = self._is_value_better(metric_value)
             except (FileNotFoundError, KeyError):
