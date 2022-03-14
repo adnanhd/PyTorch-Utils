@@ -122,8 +122,8 @@ class Dataset(torch.utils.data.dataset.Dataset):
                                            num_workers=num_workers)
 
     @staticmethod
-    def _load(path):
-        data = torch.load(path)
+    def _load(path, **kwargs):
+        data = torch.load(path, **kwargs)
         def _check_checksum(data, checksum):
             assert checksum['sha256'] == hashlib.sha256(bytes(data)).hexdigest(), "SHA256 checksum must match"
             assert checksum['blake2b'] == hashlib.blake2b(bytes(data)).hexdigest(), "blake2d checksum must match"
@@ -132,13 +132,13 @@ class Dataset(torch.utils.data.dataset.Dataset):
         return _check_checksum(**data['features']), _check_checksum(**data['labels'])
 
     @hybridmethod
-    def load(cls, path):
-        features, labels = cls._load(path)
+    def load(cls, path, **kwargs):
+        features, labels = cls._load(path, **kwargs)
         return cls(features=features, labels=labels)
 
     @load.instancemethod
-    def load(self, path):
-        self.features, self.labels = self._load(path)
+    def load(self, path, **kwargs):
+        self.features, self.labels = self._load(path, **kwargs)
 
     def save(self, path):
         def _add_checksum(arr):
