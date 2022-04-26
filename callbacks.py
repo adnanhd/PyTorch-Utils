@@ -19,7 +19,7 @@ class Callback:
 class EarlyStopping(Callback):
     """Early stops the training if validation loss doesn't improve after a given patience."""
 
-    def __init__(self, patience=7, verbose=False, delta=0, trace_func=print, save_model=True):
+    def __init__(self, patience=7, monitor='valid_loss', verbose=False, delta=0, trace_func=print, save_model=True):
         """
         Args:
             patience (int): How long to wait after last time validation loss improved.
@@ -41,10 +41,26 @@ class EarlyStopping(Callback):
         self.save_model = save_model
         self.val_loss = np.Inf
         self.delta = delta
+        self.monitor = monitor
         self.trace_func = trace_func
 
-    def on_epoch_end(self, trainer, valid_loss=None, epoch=None, **kwargs):
-        score = -valid_loss
+       
+    def __call__(self, epoch=None, **kwmetrics):
+        score = -kwmetrics[self.monitor]
+
+        if self.best_score is None:
+            self.best_score = score
+        elif score < self.best_score + self.delta:
+            self.counter += 1
+            if self.verbose:
+                self.trace_func(
+                    f'EarlyStopping counter: {self.counter} out of {self.patience}')
+            if self.counter >= self.patience:
+                self.early_stop = True
+        return self.early_stop
+        
+    def on_epoch_end(self, trainer, valid_loss=None, epoch=None, **kwmetrics):
+        score = -kwmetrics[self.monitor]
 
         if self.best_score is None:
             self.best_score = score
@@ -69,7 +85,9 @@ class ModelCheckpoint(Callback):
     from copy import deepcopy
     """Early stops the training if validation loss doesn't improve after a given patience."""
 
-    def __init__(self, monitor='valid_loss', verbose=False, save_max=False, save_model=False, step_size=10, load_back_n=None):
+    def __init__(self, monitor='valid_loss', 
+                 verbose=False, save_max=False, 
+                 save_model=False, step_size=10, load_back_n=None):
         self.monitor = monitor
         self.best_weights = None
         self.max = save_max
@@ -78,6 +96,15 @@ class ModelCheckpoint(Callback):
         self.verbose = verbose
         self.step_size = step_size
         self.best = float('-inf') if save_max else float('inf')
+        
+    def __call__(self, epoch=None, **kwmetrics):
+        metric_value = kwmetrics[self.monitor]
+
+        if self.max and metric_value > self.best or metric_value < self.best:
+            self.best = metric_value
+            print("best model is saved...")
+            return True
+        return False
 
     def on_epoch_end(self, trainer, epoch=None, **kwargs):
         metric_value = kwargs[self.monitor]

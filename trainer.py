@@ -106,7 +106,7 @@ class Trainer:
             metrics={}):
 
         self._stop_iter = False
-        metrics.setdefault('loss', loss_to_metric(self.loss_func))
+        #metrics.setdefault('loss', loss_to_metric(self.loss_func))
         train_df = pd.DataFrame(columns=metrics.keys(), index=range(epochs))
         valid_df = pd.DataFrame(columns=metrics.keys(), index=range(epochs))
 
@@ -142,7 +142,7 @@ class Trainer:
                 self.optimizer.zero_grad()
                 loss.backward()
                 self.optimizer.step()
-
+                
                 for metric_name, metric_func in enumerate(metrics.values()):
                     loss_list[batch, metric_name] = metric_func(
                         y_true=y_true.detach(), 
